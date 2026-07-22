@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: Linux
+
+          - os: macos-latest
+            artifact: macOS
+
+          - os: windows-latest
+            artifact: Windows
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    # ------------------------------------------------------------
+    # Checkout
+    # ------------------------------------------------------------
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # ------------------------------------------------------------
+    # Check files
+    # ------------------------------------------------------------
+    - name: Check source files
+      shell: bash
+      run: |
+        ls -la
+        echo "Checking LICENSE:"
+        test -f LICENSE && echo "LICENSE found" || echo "LICENSE missing"
+
+    # ------------------------------------------------------------
+    # Linux dependencies
+    # ------------------------------------------------------------
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          cmake \
+          ninja-build \
+          build-essential \
+          pkg-config \
+          libexiv2-dev
+
+    # ------------------------------------------------------------
+    # macOS dependencies
+    # ------------------------------------------------------------
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install \
+          cmake \
+          ninja \
+          pkg-config \
+          exiv2
+
+    # ------------------------------------------------------------
+    # Windows dependencies
+    # ------------------------------------------------------------
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        choco install cmake ninja -y
+
+        if (!(Test-Path C:\vcpkg)) {
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+        }
+
+        C:\vcpkg\bootstrap-vcpkg.bat
+
+        # Manifest mode (убедитесь, что vcpkg.json есть в репозитории)
+        C:\vcpkg\vcpkg install
+
+    # ------------------------------------------------------------
+    # Configure
+    # ------------------------------------------------------------
+    - name: Configure
+      shell: pwsh
+      run: |
+        if ("${{ runner.os }}" -eq "Windows") {
+          cmake --preset release-shared `
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+        }
+        else {
+          cmake --preset release-shared
+        }
+
+    # ------------------------------------------------------------
+    # Build
+    # ------------------------------------------------------------
+    - name: Build
+      run: |
+        cmake --build --preset release-shared --config Release
+
+    # ------------------------------------------------------------
+    # Package
+    # ------------------------------------------------------------
+    - name: Package
+      shell: pwsh
+      run: |
+        cd out/release-shared
+        cpack -C Release
+
+    # ------------------------------------------------------------
+    # Upload artifacts
+    # ------------------------------------------------------------
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: miniexiv-${{ matrix.artifact }}
+        path: |
+          out/release-shared/*.tar.gz
+          out/release-shared/*.zip
+          out/release-shared/*.deb
+
+
+# ==================================================================
+# GitHub Release
+# ==================================================================
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        files: |
+          artifacts/**/*

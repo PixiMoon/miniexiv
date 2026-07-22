@@ -1,0 +1,93 @@
+{
+  "version": 6,
+  
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/out/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+
+    {
+      "name": "debug-shared",
+      "inherits": "base",
+      "displayName": "Debug Shared",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    },
+
+    {
+      "name": "debug-static",
+      "inherits": "base",
+      "displayName": "Debug Static",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    },
+
+    {
+      "name": "release-shared",
+      "inherits": "base",
+      "displayName": "Release Shared",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    },
+
+    {
+      "name": "release-static",
+      "inherits": "base",
+      "displayName": "Release Static",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "debug-shared",
+      "configurePreset": "debug-shared"
+    },
+    {
+      "name": "debug-static",
+      "configurePreset": "debug-static"
+    },
+    {
+      "name": "release-shared",
+      "configurePreset": "release-shared"
+    },
+    {
+      "name": "release-static",
+      "configurePreset": "release-static"
+    }
+  ],
+
+  "testPresets": [
+    {
+      "name": "debug-shared",
+      "configurePreset": "debug-shared"
+    },
+    {
+      "name": "debug-static",
+      "configurePreset": "debug-static"
+    },
+    {
+      "name": "release-shared",
+      "configurePreset": "release-shared"
+    },
+    {
+      "name": "release-static",
+      "configurePreset": "release-static"
+    }
+  ]
+  
+} 

@@ -1,0 +1,9 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Exiv2 CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/miniexivTargets.cmake")
+
+check_required_components(miniexiv)

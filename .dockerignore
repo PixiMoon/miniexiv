@@ -1,0 +1,9 @@
+out/
+build/
+install/
+.git/
+compile_commands.json
+*.o
+*.a
+*.so
+*.dylib

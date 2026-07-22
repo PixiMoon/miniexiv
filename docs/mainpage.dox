@@ -1,0 +1,332 @@
+/**
+ * @mainpage MiniExiv Documentation
+ *
+ * @section overview Overview
+ *
+ * MiniExiv is a lightweight C API wrapper around the Exiv2 library.
+ *
+ * It provides a simple C interface for reading, modifying and exporting
+ * image metadata without exposing C++ classes.
+ *
+ * Supported metadata:
+ *
+ * - EXIF
+ * - XMP
+ * - IPTC
+ * - ICC profile
+ * - Image comments
+ *
+ * MiniExiv can work with images opened from files or memory buffers.
+ *
+ *
+ * @section requirements Requirements
+ *
+ * Before using MiniExiv, initialize the library:
+ *
+ * @code{.c}
+ * miniexiv_initialize();
+ * @endcode
+ *
+ * When the application no longer needs MiniExiv:
+ *
+ * @code{.c}
+ * miniexiv_shutdown();
+ * @endcode
+ *
+ * Initialization is reference counted. Multiple calls to
+ * miniexiv_initialize() are allowed. The library is terminated only
+ * after the same number of miniexiv_shutdown() calls.
+ *
+ *
+ * @section workflow Basic workflow
+ *
+ * The typical workflow is:
+ *
+ * 1. Initialize MiniExiv.
+ * 2. Open an image.
+ * 3. Read or modify metadata.
+ * 4. Write changes if required.
+ * 5. Release the image object.
+ * 6. Shutdown MiniExiv.
+ *
+ *
+ * @section open_file Opening an image from file
+ *
+ * Example:
+ *
+ * @code{.c}
+ * miniexiv_image *image =
+ *     miniexiv_image_open_file("photo.jpg");
+ *
+ * if (!image) {
+ *     printf("Error: %s\n", miniexiv_get_last_error());
+ *     return;
+ * }
+ * @endcode
+ *
+ * The returned object must be released using:
+ *
+ * @code{.c}
+ * miniexiv_image_free(image);
+ * @endcode
+ *
+ *
+ * @section open_buffer Opening an image from memory
+ *
+ * MiniExiv can open images directly from a memory buffer.
+ *
+ * @code{.c}
+ * uint8_t *data;
+ * size_t size;
+ *
+ * // load image data here
+ *
+ * miniexiv_image *image =
+ *     miniexiv_image_open_buf(data, size);
+ * @endcode
+ *
+ * The input buffer must remain valid while the image object exists.
+ *
+ * After modifications, export the updated image using:
+ *
+ * @code{.c}
+ * uint8_t *out;
+ * size_t out_size;
+ *
+ * miniexiv_image_export_buf(
+ *     image,
+ *     &out,
+ *     &out_size
+ * );
+ *
+ * miniexiv_free_buffer(out);
+ * @endcode
+ *
+ *
+ * @section exif EXIF metadata
+ *
+ * EXIF values can be created or updated:
+ *
+ * @code{.c}
+ * miniexiv_image_set_exif_string(
+ *     image,
+ *     "Exif.Image.Artist",
+ *     "MiniExiv"
+ * );
+ * @endcode
+ *
+ * If the EXIF tag already exists, its value is replaced.
+ *
+ * To check if a tag exists:
+ *
+ * @code{.c}
+ * int exists =
+ *     miniexiv_image_has_exif(
+ *         image,
+ *         "Exif.Image.Artist"
+ *     );
+ * @endcode
+ *
+ * To remove a tag:
+ *
+ * @code{.c}
+ * miniexiv_image_remove_exif(
+ *     image,
+ *     "Exif.Image.Artist"
+ * );
+ * @endcode
+ *
+ *
+ * @section xmp XMP metadata
+ *
+ * XMP metadata can be modified in the same way:
+ *
+ * @code{.c}
+ * miniexiv_image_set_xmp_string(
+ *     image,
+ *     "Xmp.dc.creator",
+ *     "MiniExiv"
+ * );
+ * @endcode
+ *
+ * Existing XMP values are replaced.
+ *
+ * To save only the XMP packet:
+ *
+ * @code{.c}
+ * miniexiv_image_save_xmp(
+ *     image,
+ *     "metadata.xmp"
+ * );
+ * @endcode
+ *
+ *
+ * @section writing Writing metadata
+ *
+ * Metadata changes are stored only in memory until written.
+ *
+ * To write changes back to the original image:
+ *
+ * @code{.c}
+ * miniexiv_image_metadata_write(image);
+ * @endcode
+ *
+ * If the image was opened from a file, this operation modifies that file.
+ *
+ * If the image was opened from memory, use:
+ *
+ * @code{.c}
+ * miniexiv_image_export_buf(
+ *     image,
+ *     &buffer,
+ *     &size
+ * );
+ * @endcode
+ *
+ *
+ * @section clearing Clearing metadata
+ *
+ * Remove all metadata:
+ *
+ * @code{.c}
+ * miniexiv_image_clear(image);
+ * @endcode
+ *
+ * Remove only EXIF:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_exif(image);
+ * @endcode
+ *
+ * Remove only IPTC:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_iptc(image);
+ * @endcode
+ *
+ *
+ * @section iterator EXIF iteration
+ *
+ * All EXIF tags can be enumerated using an iterator:
+ *
+ * @code{.c}
+ * miniexiv_exif_iterator *it =
+ *     miniexiv_exif_iterator_create(image);
+ *
+ * while (miniexiv_exif_iterator_next(it)
+ *        == MINIEXIV_ITERATOR_HAS_NEXT)
+ * {
+ *     printf("%s = %s\n",
+ *        miniexiv_exif_iterator_get_key(it),
+ *        miniexiv_exif_iterator_get_value(it));
+ * }
+ *
+ * miniexiv_exif_iterator_free(it);
+ * @endcode
+ *
+ *
+ * @section memory Memory management
+ *
+ * MiniExiv objects are owned by the caller.
+ *
+ * Objects created by MiniExiv must be released:
+ *
+ * Image:
+ *
+ * @code{.c}
+ * miniexiv_image_free(image);
+ * @endcode
+ *
+ * Iterator:
+ *
+ * @code{.c}
+ * miniexiv_exif_iterator_free(iterator);
+ * @endcode
+ *
+ * Exported image buffers:
+ *
+ * @code{.c}
+ * miniexiv_free_buffer(buffer);
+ * @endcode
+ *
+ * Returned strings from getter functions are owned by MiniExiv and must
+ * not be freed by the caller.
+ *
+ *
+ * @section errors Error handling
+ *
+ * Most functions return:
+ *
+ * - MINIEXIV_OK on success
+ * - MINIEXIV_ERROR on failure
+ *
+ * After an error, retrieve details:
+ *
+ * @code{.c}
+ * printf("%s\n", miniexiv_get_last_error());
+ * @endcode
+ *
+ *
+ * @section complete Complete example
+ *
+ * @code{.c}
+ * miniexiv_initialize();
+ *
+ * miniexiv_image *image =
+ *     miniexiv_image_open_file("photo.jpg");
+ *
+ * if (image)
+ * {
+ *     miniexiv_image_set_exif_string(
+ *         image,
+ *         "Exif.Image.Artist",
+ *         "John Doe"
+ *     );
+ *
+ *     miniexiv_image_metadata_write(image);
+ *
+ *     miniexiv_image_free(image);
+ * }
+ *
+ * miniexiv_shutdown();
+ * @endcode
+ *
+ *
+ * @section notes Notes
+ *
+ * - MiniExiv does not modify metadata until a write operation is called.
+ * - EXIF and XMP changes are kept in memory first.
+ * - Memory returned by export functions must be released with the
+ *   corresponding MiniExiv free function.
+ *
+ *
+ * @section license License
+ *
+ * See the project license file for licensing information.
+ */
+ /**
+ * @page threading Thread Safety
+ *
+ * MiniExiv initialization and shutdown are thread-safe.
+ *
+ * Image objects follow normal C ownership rules.
+ *
+ * A single miniexiv_image instance must not be accessed
+ * simultaneously from multiple threads.
+ *
+ * Different image objects may be used from different threads.
+ *
+ * Example:
+ *
+ * @code
+ * Thread 1:
+ *     image A -> read/write metadata
+ *
+ * Thread 2:
+ *     image B -> read/write metadata
+ *
+ * @endcode
+ *
+ * Sharing the same image object between threads requires
+ * external synchronization.
+ */

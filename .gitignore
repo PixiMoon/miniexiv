@@ -1,0 +1,95 @@
+# =========================
+# CMake
+# =========================
+
+build/
+out/
+cmake-build-*/
+
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+CTestTestfile.cmake
+DartConfiguration.tcl
+Testing/
+install_manifest.txt
+
+compile_commands.json
+
+
+# =========================
+# Compiled binaries
+# =========================
+
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+
+
+# =========================
+# macOS
+# =========================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+*.dSYM/
+*.dSYM.zip
+
+# Xcode
+DerivedData/
+*.xcworkspace
+xcuserdata/
+
+
+# =========================
+# Editors
+# =========================
+
+.vscode/
+.idea/
+.vs/
+
+*.swp
+*.swo
+
+CMakeUserPresets.json
+
+
+# =========================
+# C++ build
+# =========================
+
+*.log
+*.tmp
+
+
+# =========================
+# Tests
+# =========================
+
+tests/build/
+tests/*.out
+
+
+# =========================
+# Package managers
+# =========================
+
+.cache/
+
+
+# =========================
+# Temporary files
+# =========================
+
+*~
+*.bak
+*.orig

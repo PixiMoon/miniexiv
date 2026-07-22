@@ -1,0 +1,21 @@
+#include "miniexiv/miniexiv.h"
+
+MINIEXIV_EXPORT const char* miniexiv_version(void)
+{
+    return "@PROJECT_VERSION@";
+}
+
+MINIEXIV_EXPORT int miniexiv_version_major(void)
+{
+    return @PROJECT_VERSION_MAJOR@;
+}
+
+MINIEXIV_EXPORT int miniexiv_version_minor(void)
+{
+    return @PROJECT_VERSION_MINOR@;
+}
+
+MINIEXIV_EXPORT int miniexiv_version_patch(void)
+{
+    return @PROJECT_VERSION_PATCH@;
+}

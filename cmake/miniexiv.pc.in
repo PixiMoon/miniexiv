@@ -1,0 +1,13 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: miniexiv
+Description: C wrapper for Exiv2 library
+Version: @PROJECT_VERSION@
+
+Requires: exiv2
+Libs: -L${libdir} -lminiexiv
+Cflags: -I${includedir}
