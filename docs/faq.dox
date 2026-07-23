@@ -1,0 +1,115 @@
+/**
+ * @page faq Frequently Asked Questions
+ *
+ * @section faq_changes Why do metadata changes not appear in the file?
+ *
+ * Setter, remove, and clear functions normally update the in-memory image
+ * object first.
+ *
+ * Call:
+ *
+ * @code{.c}
+ * miniexiv_image_metadata_write(image);
+ * @endcode
+ *
+ * to update the original file, or use a save/export operation.
+ *
+ * @section faq_memory Why use export_buf()?
+ *
+ * Use image export when:
+ *
+ * - the image was opened from memory
+ * - the result must be sent over a network
+ * - the result must be stored in a database
+ * - the caller does not want to modify the original file
+ *
+ * Release the returned buffer with miniexiv_free_buffer().
+ *
+ * @section faq_save_copy How do I save to a different file?
+ *
+ * Use:
+ *
+ * @code{.c}
+ * miniexiv_image_save_to_file(
+ *     image,
+ *     "output.jpg");
+ * @endcode
+ *
+ * This preserves the original path while creating a new image file.
+ *
+ * @section faq_missing_key What happens when a metadata key is missing?
+ *
+ * Getter functions return an error or a documented not-found result.
+ *
+ * Do not assume that a common key is absent in a test image. Remove it first or
+ * use a key guaranteed to be absent before testing missing-key behavior.
+ *
+ * @section faq_invalid_key What happens with an invalid metadata key?
+ *
+ * The operation fails and miniexiv_get_last_error() provides a diagnostic
+ * message.
+ *
+ * Use Exiv2-style keys such as:
+ *
+ * - Exif.Image.Artist
+ * - Xmp.dc.creator
+ * - Iptc.Application2.Caption
+ *
+ * @section faq_iterators Can I modify metadata while iterating?
+ *
+ * No.
+ *
+ * Metadata mutation may invalidate iterator state and borrowed key/value
+ * pointers.
+ *
+ * Free the iterator, modify the metadata, and create a new iterator.
+ *
+ * @section faq_threads Can I use one image from multiple threads?
+ *
+ * Not without external synchronization.
+ *
+ * Different image objects may be processed in different threads.
+ *
+ * @section faq_init How often should I initialize MiniExiv?
+ *
+ * Applications commonly initialize once during startup and shut down once
+ * during termination.
+ *
+ * Initialization is reference counted, so components may hold independent
+ * lifecycle guards when every successful initialize has a matching shutdown.
+ *
+ * @subsection faq_buffer_lifetime Does open_buf() copy the input data?
+ * No, not immediately.
+ * miniexiv_image_open_buf() initially references the caller-provided input buffer. The buffer must remain valid and must not be modified while the image continues to use it.
+ * After the first successful call to miniexiv_image_metadata_write(), MiniExiv switches the image to an internal owned copy. From that point onward, the original input buffer is no longer required and may be released by the caller.
+ *
+ * @section faq_formats Which image formats are supported?
+ *
+ * Format support depends on the Exiv2 version and build configuration linked
+ * with MiniExiv.
+ *
+ * Consult the Exiv2 documentation for the authoritative format list.
+ *
+ * @section faq_static Is a completely static executable always possible?
+ *
+ * Not necessarily.
+ *
+ * Static linking may require static versions of Exiv2 and every transitive
+ * dependency. Availability depends on the operating system and package manager.
+ *
+ * Building libminiexiv as a static library does not guarantee that the final
+ * executable contains no dynamic dependencies.
+ *
+ * @section faq_errors When should I read the last error?
+ *
+ * Read it immediately after a failing MiniExiv call:
+ *
+ * @code{.c}
+ * if (miniexiv_image_metadata_write(image) != MINIEXIV_OK) {
+ *     fprintf(stderr, "%s\n",
+ *             miniexiv_get_last_error());
+ * }
+ * @endcode
+ *
+ * A later call in the same thread may replace the stored message.
+ */

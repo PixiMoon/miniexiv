@@ -1,0 +1,165 @@
+/**
+ * @page memory_management Memory Management
+ *
+ * @section mem_overview Overview
+ *
+ * MiniExiv uses explicit C ownership rules.
+ *
+ * Every resource created or allocated by MiniExiv must be released by the
+ * matching MiniExiv function.
+ *
+ * @section mem_table Ownership table
+ *
+ * <table>
+ * <tr>
+ *   <th>Resource</th>
+ *   <th>Ownership</th>
+ *   <th>Release function</th>
+ * </tr>
+ * <tr>
+ *   <td>miniexiv_image*</td>
+ *   <td>Owned by caller</td>
+ *   <td>miniexiv_image_free()</td>
+ * </tr>
+ * <tr>
+ *   <td>EXIF iterator</td>
+ *   <td>Owned by caller</td>
+ *   <td>miniexiv_exif_iterator_free()</td>
+ * </tr>
+ * <tr>
+ *   <td>XMP iterator</td>
+ *   <td>Owned by caller</td>
+ *   <td>matching XMP iterator free function</td>
+ * </tr>
+ * <tr>
+ *   <td>IPTC iterator</td>
+ *   <td>Owned by caller</td>
+ *   <td>matching IPTC iterator free function</td>
+ * </tr>
+ * <tr>
+ *   <td>Exported uint8_t buffer</td>
+ *   <td>Owned by caller</td>
+ *   <td>miniexiv_free_buffer()</td>
+ * </tr>
+ * <tr>
+ *   <td>Getter string</td>
+ *   <td>Depends on function contract</td>
+ *   <td>matching MiniExiv string-free function when owned</td>
+ * </tr>
+ * <tr>
+ *   <td>Iterator key/value pointer</td>
+ *   <td>Borrowed</td>
+ *   <td>Do not free</td>
+ * </tr>
+ * </table>
+ *
+ * @section mem_image Image ownership
+ *
+ * Image-opening functions return an owned image handle:
+ *
+ * @code{.c}
+ * miniexiv_image *image =
+ *     miniexiv_image_open_file("photo.jpg");
+ *
+ * if (image != NULL) {
+ *     // Use image.
+ *     miniexiv_image_free(image);
+ * }
+ * @endcode
+ *
+ * Freeing NULL should be safe when documented by the API.
+ *
+ * @section mem_buffers Exported image buffers
+ *
+ * @code{.c}
+ * uint8_t *buffer = NULL;
+ * size_t size = 0;
+ *
+ * if (miniexiv_image_export_buf(
+ *         image,
+ *         &buffer,
+ *         &size) == MINIEXIV_OK) {
+ *
+ *     // Use buffer and size.
+ *
+ *     miniexiv_free_buffer(buffer);
+ * }
+ * @endcode
+ *
+ * Never release a MiniExiv buffer with free(), delete, delete[], or another
+ * allocator.
+ *
+ * @section mem_strings Strings
+ *
+ * Getter functions may use one of two contracts:
+ *
+ * - return a borrowed const char pointer
+ * - allocate a char buffer and transfer ownership to the caller
+ *
+ * Check the declaration-specific documentation.
+ *
+ * Never guess the ownership based only on the pointer type.
+ *
+ * @section mem_iterators Iterator ownership
+ *
+ * Iterators are owned by the caller:
+ *
+ * @code{.c}
+ * miniexiv_exif_iterator *it =
+ *     miniexiv_exif_iterator_create(image);
+ *
+ * // Iterate.
+ *
+ * miniexiv_exif_iterator_free(it);
+ * @endcode
+ *
+ * The iterator must be freed before the image.
+ *
+ * @section mem_order Cleanup order
+ *
+ * Recommended order:
+ *
+ * 1. release temporary strings and exported buffers
+ * 2. release iterators
+ * 3. release images
+ * 4. shut down MiniExiv
+ *
+ * @section mem_ffi FFI and language bindings
+ *
+ * Language bindings must preserve MiniExiv allocator boundaries.
+ *
+ * A binding should normally wrap:
+ *
+ * - image handles with RAII or Drop
+ * - iterator handles with RAII or Drop
+ * - exported buffers with a custom destructor
+ * - initialization with a process-wide or reference-counted guard
+ *
+ * Never let a foreign-language allocator release memory allocated by MiniExiv.
+ *
+ * @section mem_failure Failure behavior
+ *
+ * On failure:
+ *
+ * - output pointers should be treated as invalid unless explicitly documented
+ * - output sizes should not be trusted
+ * - callers should initialize output pointers to NULL
+ * - callers should initialize output sizes to zero
+ *
+ * Example:
+ *
+ * @code{.c}
+ * uint8_t *buffer = NULL;
+ * size_t size = 0;
+ *
+ * int rc = miniexiv_image_export_buf(
+ *     image,
+ *     &buffer,
+ *     &size);
+ *
+ * if (rc != MINIEXIV_OK) {
+ *     fprintf(stderr, "%s\n",
+ *             miniexiv_get_last_error());
+ * }
+ * @endcode
+ */

@@ -46,14 +46,14 @@
 #include <miniexiv/miniexiv_export.h>
 #include <stddef.h>
 #include <stdint.h>
-#define MINIEXIV_OK ((int)0)
-#define MINIEXIV_ERROR ((int)-1)
+#define MINIEXIV_OK 0
+#define MINIEXIV_ERROR -1
 
-#define MINIEXIV_TRUE ((int)1)
-#define MINIEXIV_FALSE ((int)0)
+#define MINIEXIV_TRUE 1
+#define MINIEXIV_FALSE 0
 
-#define MINIEXIV_ITERATOR_HAS_NEXT ((int)1)
-#define MINIEXIV_ITERATOR_END ((int)0)
+#define MINIEXIV_ITERATOR_HAS_NEXT 1
+#define MINIEXIV_ITERATOR_END 0
 #ifdef __cplusplus
 extern "C" {
 #endif

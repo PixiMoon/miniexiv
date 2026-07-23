@@ -949,7 +949,7 @@ MINIEXIV_EXPORT int miniexiv_image_get_xmp_string(const miniexiv_image *image,
 
       auto pos = iptc.findKey(Exiv2::IptcKey(key));
 
-      return pos != iptc.end() ? 1 : 0;
+      return pos != iptc.end() ? MINIEXIV_TRUE : MINIEXIV_ERROR;
     } catch (const Exiv2::Error &e) {
       set_last_error(e.what());
       return MINIEXIV_ERROR;

@@ -1,0 +1,115 @@
+/**
+ * @page iterators_guide Metadata Iterators
+ *
+ * @section it_overview Overview
+ *
+ * MiniExiv provides iterators for enumerating EXIF, XMP, and IPTC entries.
+ *
+ * Each iterator follows the same general lifecycle:
+ *
+ * 1. create the iterator
+ * 2. repeatedly call next
+ * 3. read the current key and value
+ * 4. free the iterator
+ *
+ * @section it_exif EXIF iterator
+ *
+ * @code{.c}
+ * miniexiv_exif_iterator *it =
+ *     miniexiv_exif_iterator_create(image);
+ *
+ * if (it == NULL) {
+ *     fprintf(stderr, "%s\n",
+ *             miniexiv_get_last_error());
+ *     return;
+ * }
+ *
+ * for (;;) {
+ *     int rc = miniexiv_exif_iterator_next(it);
+ *
+ *     if (rc == MINIEXIV_ITERATOR_END) {
+ *         break;
+ *     }
+ *
+ *     if (rc == MINIEXIV_ERROR) {
+ *         fprintf(stderr, "%s\n",
+ *                 miniexiv_get_last_error());
+ *         break;
+ *     }
+ *
+ *     const char *key =
+ *         miniexiv_exif_iterator_get_key(it);
+ *
+ *     const char *value =
+ *         miniexiv_exif_iterator_get_value(it);
+ *
+ *     printf("%s = %s\n",
+ *            key != NULL ? key : "",
+ *            value != NULL ? value : "");
+ * }
+ *
+ * miniexiv_exif_iterator_free(it);
+ * @endcode
+ *
+ * @section it_xmp XMP iterator
+ *
+ * Use the corresponding XMP iterator functions:
+ *
+ * - create
+ * - next
+ * - get current key
+ * - get current value
+ * - free
+ *
+ * @section it_iptc IPTC iterator
+ *
+ * Use the corresponding IPTC iterator functions with the same lifecycle.
+ *
+ * @section it_return_codes Iterator return values
+ *
+ * Iterator next functions normally return:
+ *
+ * - MINIEXIV_ITERATOR_HAS_NEXT when an entry is available
+ * - MINIEXIV_ITERATOR_END when iteration is complete
+ * - MINIEXIV_ERROR when iteration fails
+ *
+ * Always check the return value before reading the current key or value.
+ *
+ * @section it_lifetime Lifetime rules
+ *
+ * The iterator does not own the image.
+ *
+ * Therefore:
+ *
+ * - the image must remain alive while the iterator exists
+ * - free iterators before freeing the image
+ * - do not reuse an iterator after freeing it
+ *
+ * @section it_current_values Current key and value
+ *
+ * Pointers returned by iterator key/value accessors are valid only according to
+ * the iterator contract. Treat them as borrowed pointers.
+ *
+ * Do not free them.
+ *
+ * Copy the strings when they must outlive the current iterator position.
+ *
+ * @section it_mutation Mutation rules
+ *
+ * Do not add, replace, remove, or clear metadata while iterating over the same
+ * image.
+ *
+ * Mutation may invalidate:
+ *
+ * - iterator positions
+ * - cached key pointers
+ * - cached value pointers
+ *
+ * Free the old iterator and create a new one after modifying metadata.
+ *
+ * @section it_threading Threading
+ *
+ * An iterator must not be shared between threads.
+ *
+ * Access to the underlying image must follow the image thread-safety rules.
+ */

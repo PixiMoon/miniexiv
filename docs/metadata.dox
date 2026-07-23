@@ -1,0 +1,175 @@
+/**
+ * @page metadata_guide Working with Metadata
+ *
+ * @section md_overview Overview
+ *
+ * MiniExiv exposes metadata through C functions grouped by metadata family.
+ *
+ * The common operations are:
+ *
+ * - get a value
+ * - set or replace a value
+ * - check whether a key exists
+ * - remove one key
+ * - clear an entire metadata family
+ * - iterate over all entries
+ *
+ * @section md_exif EXIF
+ *
+ * Set or replace an EXIF value:
+ *
+ * @code{.c}
+ * miniexiv_image_set_exif_string(
+ *     image,
+ *     "Exif.Image.Artist",
+ *     "MiniExiv");
+ * @endcode
+ *
+ * Read an EXIF value:
+ *
+ * @code{.c}
+ * char *value = NULL;
+ *
+ * if (miniexiv_image_get_exif_string(
+ *         image,
+ *         "Exif.Image.Artist",
+ *         &value) == MINIEXIV_OK) {
+ *     printf("%s\n", value);
+ * }
+ * @endcode
+ *
+ * Check whether an EXIF key exists:
+ *
+ * @code{.c}
+ * int exists = miniexiv_image_has_exif_key(
+ *     image,
+ *     "Exif.Image.Artist");
+ * @endcode
+ *
+ * Remove an EXIF entry:
+ *
+ * @code{.c}
+ * miniexiv_image_remove_exif(
+ *     image,
+ *     "Exif.Image.Artist");
+ * @endcode
+ *
+ * Clear all EXIF metadata:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_exif(image);
+ * @endcode
+ *
+ * @section md_xmp XMP
+ *
+ * Set or replace an XMP value:
+ *
+ * @code{.c}
+ * miniexiv_image_set_xmp_string(
+ *     image,
+ *     "Xmp.dc.creator",
+ *     "MiniExiv");
+ * @endcode
+ *
+ * XMP keys use Exiv2 key syntax, for example:
+ *
+ * - Xmp.dc.creator
+ * - Xmp.dc.title
+ * - Xmp.xmp.CreatorTool
+ *
+ * Read, check, remove, or clear XMP using the corresponding XMP API functions.
+ *
+ * Clear all XMP metadata:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_xmp(image);
+ * @endcode
+ *
+ * Export or save the XMP packet when only the XMP document is needed.
+ *
+ * @section md_iptc IPTC
+ *
+ * IPTC values use IPTC key names, for example:
+ *
+ * - Iptc.Application2.ObjectName
+ * - Iptc.Application2.Caption
+ * - Iptc.Application2.Keywords
+ *
+ * Use the corresponding IPTC getter, setter, existence-check, remove, clear,
+ * and iterator functions.
+ *
+ * Clear all IPTC metadata:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_iptc(image);
+ * @endcode
+ *
+ * @section md_comments Image comments
+ *
+ * Set an image comment:
+ *
+ * @code{.c}
+ * miniexiv_image_set_comment(
+ *     image,
+ *     "Processed with MiniExiv");
+ * @endcode
+ *
+ * Read the current image comment with the comment getter.
+ *
+ * Clear the comment:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_comment(image);
+ * @endcode
+ *
+ * @section md_icc ICC profiles
+ *
+ * MiniExiv can detect or clear embedded ICC profile data where supported by
+ * the image format and Exiv2.
+ *
+ * Clear the ICC profile:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_icc(image);
+ * @endcode
+ *
+ * @section md_clear_all Clearing all metadata
+ *
+ * Clear all supported metadata in memory:
+ *
+ * @code{.c}
+ * miniexiv_image_clear(image);
+ * @endcode
+ *
+ * Clear all metadata and immediately write the change:
+ *
+ * @code{.c}
+ * miniexiv_image_clear_and_write(image);
+ * @endcode
+ *
+ * Use the latter only when immediate persistence is intended.
+ *
+ * @section md_write_behavior Write behavior
+ *
+ * Setters, removers, and clear operations normally modify the image object in
+ * memory first.
+ *
+ * To persist the changes, call one of:
+ *
+ * - miniexiv_image_metadata_write()
+ * - miniexiv_image_save_to_file()
+ * - miniexiv_image_export_buf()
+ *
+ * @section md_invalid_keys Invalid keys and values
+ *
+ * Invalid metadata keys, NULL pointers, unsupported operations, and invalid
+ * values return an error. Retrieve the diagnostic text through
+ * miniexiv_get_last_error().
+ *
+ * @section md_iterator_invalidation Mutation and iterators
+ *
+ * Do not modify a metadata family while an iterator over that family is active.
+ * Metadata mutation may invalidate iterator state and cached key/value pointers.
+ *
+ * Create a new iterator after changing metadata.
+ */

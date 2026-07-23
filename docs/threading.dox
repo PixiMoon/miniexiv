@@ -1,0 +1,107 @@
+/**
+ * @page threading Thread Safety
+ *
+ * @section th_overview Overview
+ *
+ * MiniExiv initialization and shutdown are synchronized.
+ *
+ * Image objects and iterators follow explicit ownership rules and must not be
+ * used concurrently unless the caller provides suitable synchronization.
+ *
+ * @section th_matrix Safety matrix
+ *
+ * <table>
+ * <tr>
+ *   <th>Operation</th>
+ *   <th>Thread-safe</th>
+ * </tr>
+ * <tr>
+ *   <td>miniexiv_initialize()</td>
+ *   <td>Yes</td>
+ * </tr>
+ * <tr>
+ *   <td>miniexiv_shutdown()</td>
+ *   <td>Yes</td>
+ * </tr>
+ * <tr>
+ *   <td>Different image objects in different threads</td>
+ *   <td>Yes, subject to Exiv2 and platform limitations</td>
+ * </tr>
+ * <tr>
+ *   <td>Concurrent access to one image object</td>
+ *   <td>No</td>
+ * </tr>
+ * <tr>
+ *   <td>Concurrent mutation of one image object</td>
+ *   <td>No</td>
+ * </tr>
+ * <tr>
+ *   <td>Sharing one iterator between threads</td>
+ *   <td>No</td>
+ * </tr>
+ * <tr>
+ *   <td>Reading last-error text in different threads</td>
+ *   <td>Yes, when error state is thread-local</td>
+ * </tr>
+ * </table>
+ *
+ * @section th_images Image objects
+ *
+ * Safe pattern:
+ *
+ * @code
+ * Thread 1:
+ *     image A -> read or write metadata
+ *
+ * Thread 2:
+ *     image B -> read or write metadata
+ * @endcode
+ *
+ * Unsafe pattern:
+ *
+ * @code
+ * Thread 1:
+ *     shared image -> read EXIF
+ *
+ * Thread 2:
+ *     shared image -> clear or write metadata
+ * @endcode
+ *
+ * Protect shared image access with an external mutex.
+ *
+ * @section th_iterators Iterators
+ *
+ * An iterator belongs to one image and one logical execution flow.
+ *
+ * Do not:
+ *
+ * - call next concurrently
+ * - read current key/value concurrently
+ * - mutate the image while iterating
+ * - free the image before freeing its iterators
+ *
+ * @section th_errors Error storage
+ *
+ * MiniExiv uses thread-local last-error storage.
+ *
+ * This means an error in one thread does not overwrite another thread's
+ * last-error message.
+ *
+ * Read the error immediately after the failing call because a later MiniExiv
+ * call in the same thread may replace it.
+ *
+ * @section th_lifecycle Lifecycle coordination
+ *
+ * Applications should ensure that MiniExiv remains initialized while any image,
+ * iterator, or exported operation is active.
+ *
+ * A recommended design is:
+ *
+ * - initialize once during application startup
+ * - process images
+ * - free all image-related resources
+ * - shut down during application termination
+ *
+ * Reference-counted initialization permits multiple independent components to
+ * hold lifecycle guards, provided each initialize call has a matching shutdown.
+ */

@@ -1,0 +1,197 @@
+/**
+ * @page getting_started Getting Started
+ *
+ * @section gs_requirements Requirements
+ *
+ * To build MiniExiv, you normally need:
+ *
+ * - a C and C++ compiler
+ * - CMake
+ * - Exiv2
+ * - pkg-config on platforms where Exiv2 is discovered through pkg-config
+ * - Ninja, Make, or another supported CMake generator
+ *
+ * Doxygen and Graphviz are optional and are only required for documentation.
+ *
+ * @section gs_cmake Building with CMake
+ *
+ * Shared library:
+ *
+ * @code{.sh}
+ * cmake -S . -B build -G Ninja \
+ *   -DCMAKE_BUILD_TYPE=Release \
+ *   -DBUILD_SHARED_LIBS=ON
+ *
+ * cmake --build build
+ * @endcode
+ *
+ * Static library:
+ *
+ * @code{.sh}
+ * cmake -S . -B build-static -G Ninja \
+ *   -DCMAKE_BUILD_TYPE=Release \
+ *   -DBUILD_SHARED_LIBS=OFF
+ *
+ * cmake --build build-static
+ * @endcode
+ *
+ * Build documentation:
+ *
+ * @code{.sh}
+ * cmake -S . -B build-docs -G Ninja \
+ *   -DBUILD_DOCS=ON
+ *
+ * cmake --build build-docs --target docs
+ * @endcode
+ *
+ * @section gs_linking Linking from CMake
+ *
+ * After installing MiniExiv, a consuming project can use:
+ *
+ * @code{.cmake}
+ * find_package(miniexiv CONFIG REQUIRED)
+ *
+ * target_link_libraries(my_application
+ *     PRIVATE
+ *         miniexiv::miniexiv
+ * )
+ * @endcode
+ *
+ * Use the exact imported target name provided by the installed package.
+ *
+ * @section gs_pkgconfig Linking with pkg-config
+ *
+ * Example:
+ *
+ * @code{.sh}
+ * cc main.c -o example \
+ *   $(pkg-config --cflags --libs miniexiv)
+ * @endcode
+ *
+ * @section gs_lifecycle Library lifecycle
+ *
+ * Initialize MiniExiv before creating image objects:
+ *
+ * @code{.c}
+ * if (miniexiv_initialize() != MINIEXIV_OK) {
+ *     fprintf(stderr, "%s\n", miniexiv_get_last_error());
+ *     return 1;
+ * }
+ * @endcode
+ *
+ * Shut it down when the application no longer needs it:
+ *
+ * @code{.c}
+ * miniexiv_shutdown();
+ * @endcode
+ *
+ * Initialization is reference counted. Every successful initialize call should
+ * have a matching shutdown call.
+ *
+ * @section gs_open_file Opening a file
+ *
+ * @code{.c}
+ * miniexiv_image *image =
+ *     miniexiv_image_open_file("photo.jpg");
+ *
+ * if (image == NULL) {
+ *     fprintf(stderr, "Open failed: %s\n",
+ *             miniexiv_get_last_error());
+ * }
+ * @endcode
+ *
+ * Release the returned image with:
+ *
+ * @code{.c}
+ * miniexiv_image_free(image);
+ * @endcode
+ *
+ * @section gs_open_memory Opening from memory
+ *
+ * @code{.c}
+ * const uint8_t *data = image_bytes;
+ * size_t data_size = image_size;
+ *
+ * miniexiv_image *image =
+ *     miniexiv_image_open_buf(data, data_size);
+ * @endcode
+ *
+ * Follow the exact buffer-lifetime guarantee documented for
+ * miniexiv_image_open_buf(). Do not release or mutate the input buffer earlier
+ * than permitted by that contract.
+ *
+ * @section gs_read_write Reading and modifying metadata
+ *
+ * A common sequence is:
+ *
+ * @code{.c}
+ * char *value = NULL;
+ *
+ * if (miniexiv_image_get_exif_string(
+ *         image,
+ *         "Exif.Image.Artist",
+ *         &value) == MINIEXIV_OK) {
+ *     printf("Artist: %s\n", value);
+ *
+ *     // Release value with the function required by the getter contract.
+ * }
+ *
+ * miniexiv_image_set_exif_string(
+ *     image,
+ *     "Exif.Image.Artist",
+ *     "MiniExiv");
+ * @endcode
+ *
+ * @section gs_save Saving changes
+ *
+ * Update the original image:
+ *
+ * @code{.c}
+ * miniexiv_image_metadata_write(image);
+ * @endcode
+ *
+ * Save to another path:
+ *
+ * @code{.c}
+ * miniexiv_image_save_to_file(
+ *     image,
+ *     "photo-updated.jpg");
+ * @endcode
+ *
+ * Export to memory:
+ *
+ * @code{.c}
+ * uint8_t *buffer = NULL;
+ * size_t buffer_size = 0;
+ *
+ * if (miniexiv_image_export_buf(
+ *         image,
+ *         &buffer,
+ *         &buffer_size) == MINIEXIV_OK) {
+ *
+ *     // Use buffer here.
+ *
+ *     miniexiv_free_buffer(buffer);
+ * }
+ * @endcode
+ *
+ * @section gs_error_pattern Recommended error pattern
+ *
+ * @code{.c}
+ * int rc = miniexiv_image_metadata_write(image);
+ *
+ * if (rc != MINIEXIV_OK) {
+ *     fprintf(stderr, "MiniExiv error: %s\n",
+ *             miniexiv_get_last_error());
+ * }
+ * @endcode
+ *
+ * @section gs_cleanup Cleanup order
+ *
+ * Recommended cleanup order:
+ *
+ * 1. free strings and exported buffers
+ * 2. free iterators
+ * 3. free image objects
+ * 4. call miniexiv_shutdown()
+ */

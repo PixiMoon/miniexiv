@@ -1,9 +1,10 @@
+
 name: Deploy Documentation
 
 on:
   push:
     branches:
-      - main 
+      - main
 
 permissions:
   contents: read
@@ -11,37 +12,55 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
 
 jobs:
   deploy-docs:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          sudo apt update
-          sudo apt install -y cmake build-essential doxygen graphviz libexiv2-dev
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            build-essential \
+            pkg-config \
+            doxygen \
+            graphviz \
+            libexiv2-dev
 
       - name: Configure CMake
         run: |
-          cmake --preset release-shared -DBUILD_DOCS=ON
+          cmake \
+            -S . \
+            -B out/docs \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_DOCS=ON
 
-      - name: Build Doxygen Documentation
+      - name: Build Doxygen documentation
         run: |
-          cmake --build --preset release-shared --target docs
+          cmake --build out/docs --target docs
+
+      - name: Verify documentation output
+        run: |
+          test -f out/docs/docs/html/index.html
+          ls -la out/docs/docs/html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          
-          path: 'out/release-shared/docs/html'
+          path: out/docs/docs/html
 
       - name: Deploy to GitHub Pages
         id: deployment
