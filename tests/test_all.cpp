@@ -249,6 +249,14 @@
 
       CHECK_EQ(miniexiv_image_check_metadata_mode(nullptr, MINIEXIV_METADATA_EXIF),
                MINIEXIV_ACCESS_ERROR);
+       double latitude = 123.0;
+       double longitude = 456.0;
+       
+      CHECK_EQ(miniexiv_image_get_gps(nullptr, nullptr, nullptr),MINIEXIV_ERROR);
+      CHECK_EQ(
+    miniexiv_image_get_gps(nullptr, &latitude, &longitude),
+    MINIEXIV_ERROR
+);
     }
 
     void test_invalid_arguments_on_valid_image(miniexiv_image *image) {
@@ -342,6 +350,12 @@
       CHECK_EQ(miniexiv_image_check_metadata_mode(
                    image, static_cast<miniexiv_metadata_id>(9999)),
                MINIEXIV_ACCESS_ERROR);
+      double latitude = 0.0;
+double longitude = 0.0;
+      CHECK_EQ(miniexiv_image_get_gps(image, &latitude, &longitude), MINIEXIV_OK);
+      CHECK_EQ(miniexiv_image_get_gps(image, nullptr, &longitude), MINIEXIV_ERROR);
+      CHECK_EQ(miniexiv_image_get_gps(image, &latitude, nullptr), MINIEXIV_ERROR);
+      CHECK_EQ(miniexiv_image_get_gps(image, nullptr, nullptr), MINIEXIV_ERROR);
     }
 
     void test_comment(miniexiv_image *image) {
@@ -790,7 +804,210 @@
         miniexiv_image_free(image);
       }
     }
+    void test_gps(miniexiv_image *image) {
+  std::cout << "[TEST] GPS API\n";
 
+  CHECK(image != nullptr);
+  if (image == nullptr) {
+    return;
+  }
+
+  constexpr const char *latitude_key =
+      "Exif.GPSInfo.GPSLatitude";
+
+  constexpr const char *latitude_ref_key =
+      "Exif.GPSInfo.GPSLatitudeRef";
+
+  constexpr const char *longitude_key =
+      "Exif.GPSInfo.GPSLongitude";
+
+  constexpr const char *longitude_ref_key =
+      "Exif.GPSInfo.GPSLongitudeRef";
+
+  constexpr double expected_latitude =
+      42.0 + 10.0 / 60.0 + 25.12 / 3600.0;
+
+  constexpr double expected_longitude =
+      42.0 + 56.0 / 60.0 + 10.74 / 3600.0;
+
+  constexpr double tolerance = 0.0000001;
+
+  /*
+   * Remove coordinates that may already exist in test.jpg,
+   * making the missing-GPS test deterministic.
+   */
+  CHECK_EQ(
+      miniexiv_image_remove_exif(image, latitude_key),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_remove_exif(image, latitude_ref_key),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_remove_exif(image, longitude_key),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_remove_exif(image, longitude_ref_key),
+      MINIEXIV_OK
+  );
+
+  double latitude = 123.0;
+  double longitude = 456.0;
+
+  CHECK_EQ(
+      miniexiv_image_get_gps(image, &latitude, &longitude),
+      MINIEXIV_ERROR
+  );
+
+  CHECK(latitude == 0.0);
+  CHECK(longitude == 0.0);
+
+  /*
+   * Write the coordinates:
+   *
+   * 42° 10' 25.12" N
+   * 42° 56' 10.74" E
+   */
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          latitude_key,
+          "42/1 10/1 2512/100"
+      ),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          latitude_ref_key,
+          "N"
+      ),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          longitude_key,
+          "42/1 56/1 1074/100"
+      ),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          longitude_ref_key,
+          "E"
+      ),
+      MINIEXIV_OK
+  );
+
+  latitude = 0.0;
+  longitude = 0.0;
+
+  CHECK_EQ(
+      miniexiv_image_get_gps(image, &latitude, &longitude),
+      MINIEXIV_OK
+  );
+
+  CHECK(
+      std::fabs(latitude - expected_latitude) < tolerance
+  );
+
+  CHECK(
+      std::fabs(longitude - expected_longitude) < tolerance
+  );
+
+  /*
+   * Verify southern and western coordinates.
+   */
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          latitude_ref_key,
+          "S"
+      ),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          longitude_ref_key,
+          "W"
+      ),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_get_gps(image, &latitude, &longitude),
+      MINIEXIV_OK
+  );
+
+  CHECK(
+      std::fabs(latitude + expected_latitude) < tolerance
+  );
+
+  CHECK(
+      std::fabs(longitude + expected_longitude) < tolerance
+  );
+
+  /*
+   * Invalid latitude reference.
+   */
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          latitude_ref_key,
+          "X"
+      ),
+      MINIEXIV_OK
+  );
+
+  latitude = 123.0;
+  longitude = 456.0;
+
+  CHECK_EQ(
+      miniexiv_image_get_gps(image, &latitude, &longitude),
+      MINIEXIV_ERROR
+  );
+
+  /*
+   * Outputs remain zero because get_gps() clears them
+   * before parsing the metadata.
+   */
+  CHECK(latitude == 0.0);
+  CHECK(longitude == 0.0);
+
+  /*
+   * Restore valid values so subsequent EXIF and iterator tests
+   * see valid metadata.
+   */
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          latitude_ref_key,
+          "N"
+      ),
+      MINIEXIV_OK
+  );
+
+  CHECK_EQ(
+      miniexiv_image_set_exif_string(
+          image,
+          longitude_ref_key,
+          "E"
+      ),
+      MINIEXIV_OK
+  );
+}
     } // namespace
 
     int main() {
@@ -809,7 +1026,7 @@
       test_open_buffer_invalid();
       test_free_functions_with_null();
       test_null_image_arguments();
-
+      
       const auto input_data = read_file(kTestImage);
       CHECK(!input_data.empty());
 
@@ -830,6 +1047,7 @@
         test_buffer_export_and_reopen(image);
         test_xmp_export(image);
         test_save_to_file(image);
+        test_gps(image);
         miniexiv_image_free(image);
       }
 
