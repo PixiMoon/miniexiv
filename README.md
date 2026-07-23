@@ -1,12 +1,4 @@
-[![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
-[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
-[![C99](https://img.shields.io/badge/C-99-green.svg)](https://en.wikipedia.org/wiki/C99)
-[![CMake](https://img.shields.io/badge/CMake-3.23%2B-064F8C.svg)](https://cmake.org/)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](#)
-[![Documentation: Doxygen](https://img.shields.io/badge/docs-Doxygen-blue.svg)](#-documentation)
-[![Build](https://github.com/piximoon/miniexiv/actions/workflows/build.yml/badge.svg)](https://github.com/piximoon/miniexiv/actions)
-
-[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://piximoon.github.io/miniexiv/)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE) [![CMake](https://img.shields.io/badge/CMake-3.23%2B-064F8C.svg)](https://cmake.org/) [![Documentation: Doxygen](https://img.shields.io/badge/docs-Doxygen-blue.svg)](#-documentation) [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://piximoon.github.io/miniexiv/)
 # MiniExiv
 
 MiniExiv is a lightweight C wrapper around the powerful Exiv2 library. It provides a simple C API for reading and modifying image metadata while leveraging Exiv2 internally.
@@ -19,6 +11,7 @@ MiniExiv is a lightweight C wrapper around the powerful Exiv2 library. It provid
 - [💾 Installation](#-installation)
 - [⚡ Quick Start](#-quick-start)
 - [🔒 Thread Safety](#-thread-safety)
+- [📖 Documentation](#-documentation)
 - [📄 License](#-license)
 
 ## ✨ Features
@@ -36,7 +29,7 @@ Read and modify image comments
 
 In practice, this means you can handle nearly all common image metadata tasks that Exiv2 provides, but with a lightweight C interface.
 
-> MiniExiv exposes nearly all of the core functionality of [Exiv2](ca://s?q=Exiv2_library) through a simple C API — making it possible to manage image metadata without diving into C++.
+> MiniExiv exposes nearly all of the core functionality of [Exiv2](https://github.com/Exiv2/exiv2) through a simple C API — making it possible to manage image metadata without diving into C++.
 
 
 ## 🛠 Requirements
@@ -47,21 +40,18 @@ In practice, this means you can handle nearly all common image metadata tasks th
 - pkg-config
 - [Exiv2](https://github.com/Exiv2/exiv2)
 
-See the full API reference:
-
-https://piximoon.github.io/miniexiv/
-## 🛠 Installing Dependencies
-
-MiniExiv requires a C/C++ toolchain, CMake, pkg-config and Exiv2 development files.
-
-The following systems are tested in clean Docker environments:
+Tested on:
 
 - Debian 12
 - Ubuntu
 - Fedora
 - Arch Linux
 - Alpine Linux
+- macOS (Homebrew)
 
+## 🛠 Installing Dependencies
+
+MiniExiv requires a C/C++ toolchain, CMake, pkg-config and Exiv2 development files.
 ### Debian / Ubuntu
 
 ```bash
@@ -118,7 +108,7 @@ Install system‑wide:
 ```bash
 sudo cmake --install build
 ```
-This makes MiniExiv discoverable via find_package(miniexiv) or pkg-config.
+This makes MiniExiv discoverable via CMake `find_package()` or `pkg-config`.
 ## ⚡ Quick Start
 
 ```cpp
@@ -149,7 +139,7 @@ int main() {
 | Context | Safe? | Notes |
 |---------|-------|-------|
 | Global lifecycle (`miniexiv_initialize` / `miniexiv_shutdown`) | ✅ Yes | Thread‑safe, reference‑counted |
-| Image handles (`miniexiv_image`) | ❌ No | Requires external synchronization (e.g., `std::mutex`) |
+| Image handles (`miniexiv_image`) | ❌ No | A single handle cannot be accessed concurrently |
 ## 📖 Documentation
 
 The full API reference is available online:
@@ -161,21 +151,6 @@ The full API reference is available online:
 cmake -S . -B build -G Ninja -DBUILD_DOCS=ON
 cmake --build build --target docs
 ```
-### Installing Dependencies (Ubuntu / Debian)
-
-Update your package index and install the required system packages:
-
-```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y \
-    git \
-    cmake \
-    build-essential \
-    pkg-config \
-    libexiv2-dev
-```
-
-
 
 
 
