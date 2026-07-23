@@ -1,0 +1,24 @@
+FROM alpine:latest
+
+RUN apk add --no-cache \
+    git \
+    cmake \
+    ninja \
+    build-base \
+    pkgconf \
+    exiv2-dev
+
+WORKDIR /build
+
+COPY . .
+
+RUN cmake --version
+
+RUN cmake -S . -B build \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=ON
+
+RUN cmake --build build
+
+CMD ["sh"]

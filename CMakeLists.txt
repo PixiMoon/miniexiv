@@ -99,10 +99,7 @@ endif()
 # Dependencies
 # ------------------------------------------------------------------------------
 
-option(MINIEXIV_FETCH_DEPENDENCIES 
-    "Download missing dependencies automatically"
-    YES
-)
+
 
 set(EXIV2_TARGET "")
 
@@ -141,42 +138,6 @@ endif()
 # 2. Fallback: download Exiv2
 # ------------------------------------------------------------------------------
 
-if(NOT EXIV2_TARGET AND MINIEXIV_FETCH_DEPENDENCIES)
-
-    message(STATUS
-        "Exiv2 not found. Fetching dependency..."
-    )
-
-    include(FetchContent)
-
-
-    set(EXIV2_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
-    set(EXIV2_BUILD_EXIV2_COMMAND OFF CACHE BOOL "" FORCE)
-    set(EXIV2_BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
-    set(EXIV2_ENABLE_NLS OFF CACHE BOOL "" FORCE)
-
-
-    FetchContent_Declare(
-        exiv2
-        GIT_REPOSITORY https://github.com/Exiv2/exiv2.git
-        GIT_TAG v0.28.8
-    )
-
-
-    FetchContent_MakeAvailable(exiv2)
-
-
-    if(TARGET Exiv2::exiv2lib)
-
-        set(EXIV2_TARGET Exiv2::exiv2lib)
-
-    elseif(TARGET Exiv2::exiv2)
-
-        set(EXIV2_TARGET Exiv2::exiv2)
-
-    endif()
-
-endif()
 
 
 # ------------------------------------------------------------------------------

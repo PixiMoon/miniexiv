@@ -1,6 +1,6 @@
-FROM debian:12
+FROM ubuntu:24.04
 
-RUN apt update && apt install -y \
+RUN apt-get update && apt-get install -y \
     git \
     cmake \
     ninja-build \
@@ -15,10 +15,11 @@ COPY . .
 
 RUN cmake --version
 
-RUN rm -rf out
+RUN cmake -S . -B build \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=ON
 
-RUN cmake --preset release-shared
-
-RUN cmake --build --preset release-shared
+RUN cmake --build build
 
 CMD ["bash"]

@@ -9,26 +9,117 @@
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://piximoon.github.io/miniexiv/)
 # MiniExiv
 
-MiniExiv is a lightweight C wrapper around the powerful [Exiv2](https://github.com/Exiv2/exiv2) library for reading and modifying image metadata. It provides a simple C API while using Exiv2 internally.
+MiniExiv is a lightweight C wrapper around the powerful Exiv2 library. It provides a simple C API for reading and modifying image metadata while leveraging Exiv2 internally.
+>The core idea of MiniExiv is to provide a stable C API with ABI compatibility for the Exiv2 library.
+
+- [✨ Features](#-features)
+- [🛠 Requirements](#-requirements)
+- [📦 Installing Dependencies](#-installing-dependencies)
+- [🚀 Building](#-building)
+- [💾 Installation](#-installation)
+- [⚡ Quick Start](#-quick-start)
+- [🔒 Thread Safety](#-thread-safety)
+- [📄 License](#-license)
 
 ## ✨ Features
+The core idea of MiniExiv is to provide a stable C API with ABI compatibility for the Exiv2 library.
 
-- Read and write EXIF IPTC XMP metadata
-- Remove EXIF/IPTC/XMP metadata
-- Read and remove ICC profiles
-- Read and modify image comments
+MiniExiv lets you work with almost everything that Exiv2 supports, but through a simple C API:
+
+Read and write EXIF, IPTC, and XMP metadata
+
+Remove EXIF, IPTC, and XMP metadata
+
+Read and remove ICC profiles
+
+Read and modify image comments
+
+In practice, this means you can handle nearly all common image metadata tasks that Exiv2 provides, but with a lightweight C interface.
+
+> MiniExiv exposes nearly all of the core functionality of [Exiv2](ca://s?q=Exiv2_library) through a simple C API — making it possible to manage image metadata without diving into C++.
+
 
 ## 🛠 Requirements
 
-- C99 compatible compiler
 - C++17 compatible compiler
 - CMake 3.23+
+- Ninja
+- pkg-config
 - [Exiv2](https://github.com/Exiv2/exiv2)
 
 See the full API reference:
 
 https://piximoon.github.io/miniexiv/
-## Quick Start
+## 🛠 Installing Dependencies
+
+MiniExiv requires a C/C++ toolchain, CMake, pkg-config and Exiv2 development files.
+
+The following systems are tested in clean Docker environments:
+
+- Debian 12
+- Ubuntu
+- Fedora
+- Arch Linux
+- Alpine Linux
+
+### Debian / Ubuntu
+
+```bash
+sudo apt update
+sudo apt install -y git cmake ninja-build build-essential pkg-config libexiv2-dev
+```
+### Mac Os
+
+```bash
+xcode-select --install
+brew install cmake ninja pkg-config exiv2
+```
+### Fedora
+```bash
+sudo dnf install -y git cmake ninja-build gcc-c++ pkgconf-pkg-config exiv2-devel
+
+```
+### Arch Linux
+```bash
+sudo pacman -Sy --needed git cmake ninja gcc pkgconf exiv2
+```
+
+### Alpine Linux
+```bash
+sudo apk add git cmake ninja build-base pkgconf exiv2-dev
+```
+
+## 🚀 Building
+
+###  Clone and build
+These options are provided by CMake and can be passed during configuration.
+
+| Option | Purpose | Default |
+|--------|---------|---------|
+| `CMAKE_INSTALL_PREFIX` | Installation directory | `/usr/local` |
+| `CMAKE_BUILD_TYPE` | Build type (`Debug`, `Release`, `RelWithDebInfo`, `MinSizeRel`) | `Release` |
+| `BUILD_SHARED_LIBS` | Build shared (`ON`) or static (`OFF`) library | `ON` |
+
+
+```bash 
+git clone https://github.com/PixiMoon/miniexiv.git
+cd miniexiv
+
+cmake -S . -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=ON
+
+cmake --build build
+```
+## 💾 Installation
+
+Install system‑wide:
+
+```bash
+sudo cmake --install build
+```
+This makes MiniExiv discoverable via find_package(miniexiv) or pkg-config.
+## ⚡ Quick Start
 
 ```cpp
 #include <iostream>
@@ -52,13 +143,24 @@ int main() {
     return 0;
 }
 ```
+
 ## 🔒 Thread Safety
 
-MiniExiv handles underlying Exiv2 and Adobe XMP SDK lifecycle safety for you:
+| Context | Safe? | Notes |
+|---------|-------|-------|
+| Global lifecycle (`miniexiv_initialize` / `miniexiv_shutdown`) | ✅ Yes | Thread‑safe, reference‑counted |
+| Image handles (`miniexiv_image`) | ❌ No | Requires external synchronization (e.g., `std::mutex`) |
+## 📖 Documentation
 
-- **Global Lifecycle (`miniexiv_initialize` / `miniexiv_shutdown`)**: Thread-safe and reference-counted. Safe to call concurrently from multiple threads or independent sub-modules. The global Exiv2/XMP state is initialized on the first call and destroyed only when the reference count drops to zero.
+The full API reference is available online:
 
-- **Shared Handle Access**: **Not thread-safe**. Concurrent operations on the **same** `miniexiv_image` handle across multiple threads require external synchronization (e.g., `std::mutex`).
+➡️ [MiniExiv API Documentation](https://piximoon.github.io/miniexiv/)
+
+## Build documentation
+```bash
+cmake -S . -B build -G Ninja -DBUILD_DOCS=ON
+cmake --build build --target docs
+```
 ### Installing Dependencies (Ubuntu / Debian)
 
 Update your package index and install the required system packages:
@@ -73,58 +175,10 @@ sudo apt install -y \
     libexiv2-dev
 ```
 
-## 🚀 Building and Testing
 
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/PixiMoon/miniexiv.git
-cd miniexiv
-```
-
-### 2. Available Build Presets
-You can choose from the following presets depending on your goals:
-- `debug-shared` — Debug build, shared library (`.so` / `.dylib` / `.dll`)
-- `debug-static` — Debug build, static library (`.a` / `.lib`)
-- `release-shared` — Release build (optimized), shared library (`.so` / `.dylib` / `.dll`)
-- `release-static` — Release build (optimized), static library (`.a` / `.lib`)
 
 
-### 3. Configuration and Compilation
-Select a preset (for example, `release-shared`) and run the following commands:
-
-```bash
-# Configure the project
-cmake --preset release-shared
-
-# Build the project
-cmake --build --preset release-shared
-```
-
-### 4. Running Tests
-The project includes test presets that match the build presets. To run the tests after a successful build, execute:
-
-```bash
-ctest --preset release-shared
-```
-
-## 💾 Installation
-
-You can install MiniExiv system-wide so it can be discovered by `find_package(miniexiv)` or `pkg-config`.
-
-### System-wide Install (Linux / macOS)
-
-Build the project using any release preset and run the `install` target with elevated privileges:
-
-```bash
-cmake --install out/release-shared
-```
-
-### Generate docs (optional):
-```bash
-cmake --preset release-shared -DBUILD_DOCS=ON
-cmake --build --preset release-shared --target docs
-```
 ## 📄 License
 
 This project is licensed under the **GNU General Public License v2.0 or later (GPL-2.0-or-later)** — the same license used by the underlying [Exiv2](https://github.com/Exiv2/exiv2) library. 

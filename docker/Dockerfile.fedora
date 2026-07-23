@@ -1,0 +1,25 @@
+FROM fedora:latest
+
+RUN dnf install -y \
+    git \
+    cmake \
+    ninja-build \
+    gcc-c++ \
+    pkg-config \
+    exiv2-devel \
+    && dnf clean all
+
+WORKDIR /build
+
+COPY . .
+
+RUN cmake --version
+
+RUN cmake -S . -B build \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=ON
+
+RUN cmake --build build
+
+CMD ["bash"]

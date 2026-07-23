@@ -1,20 +1,28 @@
 {
   "version": 6,
-  
+
   "configurePresets": [
+
     {
       "name": "base",
       "hidden": true,
+      "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
 
+
     {
-      "name": "debug-shared",
+      "name": "macos-debug-shared",
       "inherits": "base",
-      "displayName": "Debug Shared",
+      "displayName": "macOS Debug Shared",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BUILD_SHARED_LIBS": "ON"
@@ -22,9 +30,14 @@
     },
 
     {
-      "name": "debug-static",
+      "name": "macos-debug-static",
       "inherits": "base",
-      "displayName": "Debug Static",
+      "displayName": "macOS Debug Static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BUILD_SHARED_LIBS": "OFF"
@@ -32,9 +45,14 @@
     },
 
     {
-      "name": "release-shared",
+      "name": "macos-release-shared",
       "inherits": "base",
-      "displayName": "Release Shared",
+      "displayName": "macOS Release Shared",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_SHARED_LIBS": "ON"
@@ -42,52 +60,171 @@
     },
 
     {
-      "name": "release-static",
+      "name": "macos-release-static",
       "inherits": "base",
-      "displayName": "Release Static",
+      "displayName": "macOS Release Static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    },
+
+
+    {
+      "name": "linux-debug-shared",
+      "inherits": "base",
+      "displayName": "Linux Debug Shared",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    },
+
+    {
+      "name": "linux-debug-static",
+      "inherits": "base",
+      "displayName": "Linux Debug Static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    },
+
+    {
+      "name": "linux-release-shared",
+      "inherits": "base",
+      "displayName": "Linux Release Shared",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    },
+
+    {
+      "name": "linux-release-static",
+      "inherits": "base",
+      "displayName": "Linux Release Static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    },
+
+
+    {
+      "name": "windows-debug-shared",
+      "inherits": "base",
+      "displayName": "Windows Debug Shared",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    },
+
+    {
+      "name": "windows-debug-static",
+      "inherits": "base",
+      "displayName": "Windows Debug Static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    },
+
+    {
+      "name": "windows-release-shared",
+      "inherits": "base",
+      "displayName": "Windows Release Shared",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    },
+
+    {
+      "name": "windows-release-static",
+      "inherits": "base",
+      "displayName": "Windows Release Static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_SHARED_LIBS": "OFF"
       }
     }
+
   ],
+
 
   "buildPresets": [
     {
-      "name": "debug-shared",
-      "configurePreset": "debug-shared"
-    },
-    {
-      "name": "debug-static",
-      "configurePreset": "debug-static"
-    },
-    {
-      "name": "release-shared",
-      "configurePreset": "release-shared"
-    },
-    {
-      "name": "release-static",
-      "configurePreset": "release-static"
+      "name": "build",
+      "configurePreset": "macos-release-shared"
     }
   ],
 
+
   "testPresets": [
     {
-      "name": "debug-shared",
-      "configurePreset": "debug-shared"
-    },
+      "name": "test",
+      "configurePreset": "macos-debug-shared",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ],
+
+
+  "packagePresets": [
     {
-      "name": "debug-static",
-      "configurePreset": "debug-static"
-    },
-    {
-      "name": "release-shared",
-      "configurePreset": "release-shared"
-    },
-    {
-      "name": "release-static",
-      "configurePreset": "release-static"
+      "name": "package",
+      "configurePreset": "macos-release-shared",
+      "generators": [
+        "TGZ"
+      ]
     }
   ]
-  
-} 
+}

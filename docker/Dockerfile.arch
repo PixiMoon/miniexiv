@@ -1,0 +1,27 @@
+FROM --platform=linux/amd64 archlinux:base-devel
+
+RUN echo "DisableSandbox" >> /etc/pacman.conf
+
+RUN pacman -Sy --noconfirm \
+    && pacman -S --noconfirm \
+        git \
+        cmake \
+        ninja \
+        pkgconf \
+        exiv2 \
+    && pacman -Scc --noconfirm
+
+WORKDIR /build
+
+COPY . .
+
+RUN cmake --version
+
+RUN cmake -S . -B build \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=ON
+
+RUN cmake --build build
+
+CMD ["bash"]
