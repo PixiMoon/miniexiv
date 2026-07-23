@@ -16,31 +16,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Linux x86_64
-            os: ubuntu-24.04
-            platform: Linux
-            arch: x86_64
+          - name: Linux
+            os: ubuntu-latest
+            artifact: Linux
 
-          - name: Linux ARM64
-            os: ubuntu-24.04-arm
-            platform: Linux
-            arch: arm64
+          - name: macOS
+            os: macos-latest
+            artifact: macOS
 
-          - name: macOS Intel
-            os: macos-13
-            platform: macOS
-            arch: x86_64
-
-          - name: macOS Apple Silicon
-            os: macos-14
-            platform: macOS
-            arch: arm64
-
-          - name: Windows x64
-            os: windows-2022
-            platform: Windows
-            arch: x86_64
-            vcpkg_triplet: x64-windows
+          - name: Windows
+            os: windows-latest
+            artifact: Windows
 
     runs-on: ${{ matrix.os }}
 
@@ -54,14 +40,14 @@ jobs:
           fetch-depth: 0
 
       # ------------------------------------------------------------
-      # Verify release files
+      # Verify release tag and files
       # ------------------------------------------------------------
       - name: Check source files
         shell: bash
         run: |
           echo "Release tag: ${GITHUB_REF_NAME}"
-          echo "Runner OS: ${{ runner.os }}"
-          echo "Target: ${{ matrix.platform }} ${{ matrix.arch }}"
+          echo "Repository files:"
+          ls -la
 
           test -f CMakeLists.txt
           test -f README.md
@@ -100,16 +86,12 @@ jobs:
       # ------------------------------------------------------------
       # Windows dependencies
       # ------------------------------------------------------------
-      - name: Install build tools (Windows)
+      - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           choco install cmake ninja -y --no-progress
 
-      - name: Install Exiv2 with vcpkg (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
           if (!(Test-Path "C:\vcpkg\vcpkg.exe")) {
             if (!(Test-Path "C:\vcpkg")) {
               git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
@@ -124,7 +106,7 @@ jobs:
 
           & C:\vcpkg\vcpkg.exe install `
             --x-manifest-root="${{ github.workspace }}" `
-            --triplet="${{ matrix.vcpkg_triplet }}"
+            --triplet=x64-windows
 
       # ------------------------------------------------------------
       # Configure
@@ -149,7 +131,7 @@ jobs:
             -DBUILD_TESTING=ON `
             -DBUILD_DOCS=OFF `
             -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
-            -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}"
+            -DVCPKG_TARGET_TRIPLET=x64-windows
 
       # ------------------------------------------------------------
       # Build
@@ -171,61 +153,25 @@ jobs:
             --output-on-failure
 
       # ------------------------------------------------------------
-      # Validate installation
-      # ------------------------------------------------------------
-      - name: Install to staging directory
-        shell: bash
-        run: |
-          cmake --install build \
-            --config Release \
-            --prefix "${{ github.workspace }}/stage"
-
-      - name: List installed files
-        shell: bash
-        run: |
-          find stage -type f -print
-
-      # ------------------------------------------------------------
       # Binary packages
       # ------------------------------------------------------------
       - name: Create binary packages
         shell: bash
-        working-directory: build
         run: |
           cpack \
-            --config CPackConfig.cmake \
+            --config build/CPackConfig.cmake \
             -C Release
 
       # ------------------------------------------------------------
-      # Source packages
-      # Generated only once to avoid duplicates.
+      # Source package
+      # Create it only once to avoid duplicate source archives.
       # ------------------------------------------------------------
       - name: Create source packages
-        if: matrix.name == 'Linux x86_64'
-        shell: bash
-        working-directory: build
-        run: |
-          cpack --config CPackSourceConfig.cmake
-
-      # ------------------------------------------------------------
-      # Package checksums
-      # ------------------------------------------------------------
-      - name: Create checksums
+        if: runner.os == 'Linux'
         shell: bash
         run: |
-          find build -maxdepth 1 -type f \
-            \( -name "*.tar.gz" \
-            -o -name "*.zip" \
-            -o -name "*.deb" \
-            -o -name "*.rpm" \) \
-            -print0 |
-          while IFS= read -r -d '' file; do
-            if command -v sha256sum >/dev/null 2>&1; then
-              sha256sum "$file" > "$file.sha256"
-            else
-              shasum -a 256 "$file" > "$file.sha256"
-            fi
-          done
+          cpack \
+            --config build/CPackSourceConfig.cmake
 
       # ------------------------------------------------------------
       # Show generated packages
@@ -234,8 +180,7 @@ jobs:
         shell: bash
         run: |
           echo "Generated packages:"
-
-          find build -maxdepth 1 -type f \
+          find . -maxdepth 2 -type f \
             \( -name "*.tar.gz" \
             -o -name "*.zip" \
             -o -name "*.deb" \
@@ -249,7 +194,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: miniexiv-${{ matrix.platform }}-${{ matrix.arch }}
+          name: miniexiv-${{ matrix.artifact }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -265,7 +210,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Download artifacts
