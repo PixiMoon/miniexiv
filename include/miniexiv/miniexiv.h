@@ -46,14 +46,14 @@
 #include <miniexiv/miniexiv_export.h>
 #include <stddef.h>
 #include <stdint.h>
-#define MINIEXIV_OK 0
-#define MINIEXIV_ERROR -1
+#define MINIEXIV_OK ((int)0)
+#define MINIEXIV_ERROR ((int)-1)
 
-#define MINIEXIV_TRUE 1
-#define MINIEXIV_FALSE 0
+#define MINIEXIV_TRUE ((int)1)
+#define MINIEXIV_FALSE ((int)0)
 
-#define MINIEXIV_ITERATOR_HAS_NEXT 1
-#define MINIEXIV_ITERATOR_END 0
+#define MINIEXIV_ITERATOR_HAS_NEXT ((int)1)
+#define MINIEXIV_ITERATOR_END ((int)0)
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -223,28 +223,28 @@ MINIEXIV_EXPORT void miniexiv_clear_last_error(void);
  */
 MINIEXIV_EXPORT miniexiv_image *miniexiv_image_open_file(const char *filename);
 /**
- * @brief Writes modified metadata to the image source.
+ * @brief Opens an image from a memory buffer.
  *
- * Applies all metadata changes made to the image object.
+ * Creates an internal copy of the supplied image data and loads its metadata.
+ * The input buffer is never modified and may be released by the caller after
+ * this function returns.
  *
- * For images opened with miniexiv_image_open_file(), metadata changes
- * are written directly to the original image file.
- *
- * For images opened with miniexiv_image_open_buf(), changes are written
- * to the internal memory image representation. Use
+ * The returned image object must be released using miniexiv_image_free().
+ * After modifying metadata, call miniexiv_image_metadata_write() and then
  * miniexiv_image_export_buf() to retrieve the updated image data.
  *
- * @param image Image object.
+ * @param buf Pointer to the input image data.
+ * @param size Size of the input buffer in bytes.
  *
- * @return MINIEXIV_OK on success.
- * @return MINIEXIV_ERROR on failure.
+ * @return Pointer to a miniexiv_image object on success.
+ * @return NULL if the buffer is invalid or the image cannot be opened.
  *
- * @note This function must be called after modifying metadata in order
- * to save changes.
+ * @note Use miniexiv_get_last_error() to retrieve the error description after
+ *       a failed call.
  *
- * @see miniexiv_image_open_file()
- * @see miniexiv_image_open_buf()
+ * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_export_buf()
+ * @see miniexiv_image_free()
  */
 MINIEXIV_EXPORT miniexiv_image *miniexiv_image_open_buf(const uint8_t *buf,
                                                         size_t size);
@@ -293,7 +293,7 @@ MINIEXIV_EXPORT void miniexiv_image_free(miniexiv_image *ptr);
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_export_buf()
  */
-MINIEXIV_EXPORT int miniexiv_image_clear_and_write(const miniexiv_image *image);
+MINIEXIV_EXPORT int miniexiv_image_clear_and_write(miniexiv_image *image);
 /**
  * @brief Removes all metadata from the image.
  *
@@ -315,7 +315,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear_and_write(const miniexiv_image *image);
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_clear_and_write()
  */
-MINIEXIV_EXPORT int miniexiv_image_clear(const miniexiv_image *image);
+MINIEXIV_EXPORT int miniexiv_image_clear(miniexiv_image *image);
 /**
  * @brief Removes all EXIF metadata from the image.
  *
@@ -333,7 +333,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear(const miniexiv_image *image);
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_clear()
  */
-MINIEXIV_EXPORT int miniexiv_image_clear_exif(const miniexiv_image *image);
+MINIEXIV_EXPORT int miniexiv_image_clear_exif(miniexiv_image *image);
 /**
  * @brief Removes all IPTC metadata from the image.
  *
@@ -351,7 +351,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear_exif(const miniexiv_image *image);
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_clear()
  */
-MINIEXIV_EXPORT int miniexiv_image_clear_iptc(const miniexiv_image *image);
+MINIEXIV_EXPORT int miniexiv_image_clear_iptc(miniexiv_image *image);
 /**
  * @brief Removes the ICC color profile from the image.
  *
@@ -369,9 +369,23 @@ MINIEXIV_EXPORT int miniexiv_image_clear_iptc(const miniexiv_image *image);
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_clear()
  */
-MINIEXIV_EXPORT int miniexiv_image_clear_icc(const miniexiv_image *image);
-
-MINIEXIV_EXPORT int miniexiv_image_clear_xmp(const miniexiv_image *image);
+MINIEXIV_EXPORT int miniexiv_image_clear_icc(miniexiv_image *image);
+/**
+ * @brief Removes all XMP metadata from the image.
+ *
+ * Clears all XMP metadata stored in the image. The changes are applied only
+ * to the in-memory image object. Call miniexiv_image_metadata_write() to make
+ * the changes persistent.
+ *
+ * @param image Image handle.
+ *
+ * @return MINIEXIV_OK on success.
+ * @return MINIEXIV_ERROR on failure.
+ *
+ * @see miniexiv_image_metadata_write()
+ * @see miniexiv_image_clear()
+ */
+MINIEXIV_EXPORT int miniexiv_image_clear_xmp(miniexiv_image *image);
 /**
  * @brief Removes the image comment.
  *
@@ -389,7 +403,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear_xmp(const miniexiv_image *image);
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_clear()
  */
-MINIEXIV_EXPORT int miniexiv_image_clear_comment(const miniexiv_image *image);
+MINIEXIV_EXPORT int miniexiv_image_clear_comment(miniexiv_image *image);
 /**
  * @brief Gets the image comment.
  *
@@ -408,7 +422,8 @@ MINIEXIV_EXPORT int miniexiv_image_clear_comment(const miniexiv_image *image);
  *
  * @see miniexiv_free_string()
  */
-MINIEXIV_EXPORT int miniexiv_image_get_comment(const miniexiv_image *image,char **out_value);
+MINIEXIV_EXPORT int miniexiv_image_get_comment(const miniexiv_image *image,
+                                               char **out_value);
 /**
  * @brief Sets the image comment.
  *
@@ -425,7 +440,8 @@ MINIEXIV_EXPORT int miniexiv_image_get_comment(const miniexiv_image *image,char 
  *
  * @see miniexiv_image_metadata_write()
  */
-MINIEXIV_EXPORT int miniexiv_image_set_comment(const miniexiv_image *image,const char * value);
+MINIEXIV_EXPORT int miniexiv_image_set_comment(miniexiv_image *image,
+                                               const char *value);
 /**
  * @brief Sets the value of an EXIF metadata tag.
  *
@@ -463,8 +479,8 @@ MINIEXIV_EXPORT int miniexiv_image_set_exif_string(miniexiv_image *image,
  * @param image Image handle.
  * @param key EXIF tag key (for example, "Exif.Image.Artist").
  *
- * @return 1 if the EXIF tag exists.
- * @return 0 if the EXIF tag does not exist.
+ * @return MINIEXIV_TRUE if the EXIF tag exists.
+ * @return MINIEXIV_FALSE if the EXIF tag does not exist.
  * @return MINIEXIV_ERROR if an error occurs.
  *
  * @see miniexiv_image_set_exif_string()
@@ -472,7 +488,7 @@ MINIEXIV_EXPORT int miniexiv_image_set_exif_string(miniexiv_image *image,
  */
 MINIEXIV_EXPORT int miniexiv_image_has_exif_key(const miniexiv_image *image,
                                                 const char *key);
-                                                /**
+/**
  * @brief Gets the value of an EXIF metadata tag.
  *
  * Retrieves the string representation of the specified EXIF tag.
@@ -621,7 +637,7 @@ MINIEXIV_EXPORT int miniexiv_exif_iterator_next(miniexiv_exif_iterator *it);
  *         The returned string is owned by the iterator and must not be freed
  *         by the caller.
  *
- * @retval nullptr If the iterator is NULL or is not positioned on a valid
+ * @retval NULL If the iterator is NULL or is not positioned on a valid
  *         EXIF entry. Use miniexiv_get_last_error() to get more information.
  *
  * @note The returned pointer is only valid until the iterator state changes
@@ -747,9 +763,9 @@ MINIEXIV_EXPORT void miniexiv_free_buffer(uint8_t *buffer);
  * @note The specified XMP key must be supported by Exiv2.
  *
  * @see miniexiv_image_metadata_write()
- * @seeminiexiv_image_export_xmp()
+ * @see miniexiv_image_export_xmp()
  */
-MINIEXIV_EXPORT int miniexiv_image_set_xmp_string(const miniexiv_image *image,
+MINIEXIV_EXPORT int miniexiv_image_set_xmp_string(miniexiv_image *image,
                                                   const char *key,
                                                   const char *value);
 /**
@@ -764,7 +780,7 @@ MINIEXIV_EXPORT int miniexiv_image_set_xmp_string(const miniexiv_image *image,
  */
 MINIEXIV_EXPORT int miniexiv_image_has_xmp_key(const miniexiv_image *image,
                                                const char *key);
-                                               /**
+/**
  * @brief Gets the value of an XMP property.
  *
  * Retrieves the value of an XMP metadata field.
@@ -774,10 +790,12 @@ MINIEXIV_EXPORT int miniexiv_image_has_xmp_key(const miniexiv_image *image,
  *
  * @param image Image handle.
  * @param key XMP key.
- * @param out_value Output string.
+ * @param out_value Pointer receiving the allocated string.
  *
  * @return MINIEXIV_OK on success.
  * @return MINIEXIV_ERROR on failure.
+ *
+ * @note On failure, @p out_value is set to NULL.
  *
  * @see miniexiv_free_string()
  */
@@ -800,30 +818,8 @@ MINIEXIV_EXPORT int miniexiv_image_get_xmp_string(const miniexiv_image *image,
  *
  * @note Removing a non-existing key is not an error.
  */
-MINIEXIV_EXPORT int miniexiv_image_remove_xmp(const miniexiv_image *image,
+MINIEXIV_EXPORT int miniexiv_image_remove_xmp(miniexiv_image *image,
                                               const char *key);
-
-/**
- * @brief Gets the value of an XMP metadata property.
- *
- * Retrieves the string representation of the specified XMP property.
- *
- * The returned string is allocated by MiniExiv and must be released
- * using miniexiv_free_string().
- *
- * @param image Image handle.
- * @param key XMP property key (for example, "Xmp.dc.title").
- * @param out_value Pointer receiving the allocated string.
- *
- * @return MINIEXIV_OK on success.
- * @return MINIEXIV_ERROR on failure.
- *
- * @note If the XMP key does not exist, the function fails.
- *
- * @see miniexiv_free_string()
- * @see miniexiv_image_set_xmp_string()
- */
-
 /**
  * @brief Saves the image XMP packet to a file.
  *
@@ -848,7 +844,7 @@ MINIEXIV_EXPORT int miniexiv_image_remove_xmp(const miniexiv_image *image,
  * @see miniexiv_image_metadata_write()
  */
 MINIEXIV_EXPORT int miniexiv_image_export_xmp(const miniexiv_image *image,
-                                              const char *filepath);
+                                              const char *filename);
 /**
  * @brief Sets the value of an IPTC metadata field.
  *
@@ -872,7 +868,7 @@ MINIEXIV_EXPORT int miniexiv_image_export_xmp(const miniexiv_image *image,
  * @see miniexiv_image_remove_iptc()
  * @see miniexiv_image_metadata_write()
  */
-MINIEXIV_EXPORT int miniexiv_image_set_iptc_string(const miniexiv_image *image,
+MINIEXIV_EXPORT int miniexiv_image_set_iptc_string(miniexiv_image *image,
                                                    const char *key,
                                                    const char *value);
 /**
@@ -893,7 +889,7 @@ MINIEXIV_EXPORT int miniexiv_image_set_iptc_string(const miniexiv_image *image,
  */
 MINIEXIV_EXPORT int miniexiv_image_has_iptc_key(const miniexiv_image *image,
                                                 const char *key);
-                                                /**
+/**
  * @brief Gets the value of an IPTC metadata field.
  *
  * Retrieves the string representation of the specified IPTC metadata field.
@@ -921,7 +917,7 @@ MINIEXIV_EXPORT int miniexiv_image_has_iptc_key(const miniexiv_image *image,
 MINIEXIV_EXPORT int miniexiv_image_get_iptc_string(const miniexiv_image *image,
                                                 const char *key,
                                                 char **out_value);
-                                                /**
+/**
  * @brief Removes an IPTC metadata field.
  *
  * Removes the specified IPTC metadata field from the image.
@@ -943,7 +939,7 @@ MINIEXIV_EXPORT int miniexiv_image_get_iptc_string(const miniexiv_image *image,
  * @see miniexiv_image_set_iptc_string()
  * @see miniexiv_image_metadata_write()
  */
-MINIEXIV_EXPORT int miniexiv_image_remove_iptc(const miniexiv_image *image,
+MINIEXIV_EXPORT int miniexiv_image_remove_iptc(miniexiv_image *image,
                                                const char *key);
 /**
  * @brief Gets image pixel dimensions.
@@ -969,6 +965,7 @@ MINIEXIV_EXPORT int miniexiv_image_get_dimensions(const miniexiv_image *image,
  * an output parameter.
  *
  * Currently used by:
+ * - miniexiv_image_get_comment()
  * - miniexiv_image_get_exif_string()
  * - miniexiv_image_get_xmp_string()
  * - miniexiv_image_get_iptc_string()
@@ -984,6 +981,8 @@ MINIEXIV_EXPORT int miniexiv_image_get_dimensions(const miniexiv_image *image,
  *
  * @see miniexiv_image_get_exif_string()
  * @see miniexiv_image_get_xmp_string()
+ * @see miniexiv_image_get_iptc_string()
+ * @see miniexiv_image_get_comment()
  */
 MINIEXIV_EXPORT void miniexiv_free_string(char *ptr);
 /**
@@ -997,7 +996,7 @@ MINIEXIV_EXPORT void miniexiv_free_string(char *ptr);
  *
  * This function is useful when the modified image needs to be
  * saved under a different filename.
- * @warning Existing files may be overwritten.
+ * @warning An existing destination file will be overwritten.
  * @param image Image handle.
  * @param filename Destination file path.
  *
@@ -1009,7 +1008,8 @@ MINIEXIV_EXPORT void miniexiv_free_string(char *ptr);
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_open_file()
  */
-MINIEXIV_EXPORT int miniexiv_image_save_to_file(const miniexiv_image *image,const char* filename);
+MINIEXIV_EXPORT int miniexiv_image_save_to_file(const miniexiv_image *image,
+                                                   const char *filename);
 /**
  * @brief Creates an iterator for XMP metadata.
  *
@@ -1061,8 +1061,8 @@ miniexiv_xmp_iterator_next(miniexiv_xmp_iterator *it);
  * Returns the name of the XMP property at the current
  * iterator position.
  *
- * The returned string belongs to the iterator and must not
- * be freed by the caller.
+ * The returned string belongs to the iterator and must not be freed by the
+ * caller. The pointer remains valid until the iterator is advanced or freed.
  *
  * @param it XMP iterator.
  *
@@ -1126,7 +1126,8 @@ miniexiv_iptc_iterator_next(miniexiv_iptc_iterator *it);
 /**
  * @brief Returns the current IPTC key.
  *
- * The returned string is owned by the iterator.
+ * The returned string is owned by the iterator and must not be freed by the
+ * caller. The pointer remains valid until the iterator is advanced or freed.
  *
  * @param it IPTC iterator.
  *
@@ -1138,7 +1139,8 @@ miniexiv_iptc_iterator_get_key(miniexiv_iptc_iterator *it);
 /**
  * @brief Returns the current IPTC value.
  *
- * The returned string is owned by the iterator.
+ * The returned string is owned by the iterator and must not be freed by the
+ * caller. The pointer remains valid until the iterator is advanced or freed.
  *
  * @param it IPTC iterator.
  *
@@ -1157,7 +1159,6 @@ miniexiv_iptc_iterator_get_value(miniexiv_iptc_iterator *it);
 
 MINIEXIV_EXPORT void
 miniexiv_iptc_iterator_free(miniexiv_iptc_iterator *it);
-
 /**
  * @brief Returns metadata access capabilities.
  *

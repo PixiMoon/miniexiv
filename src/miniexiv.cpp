@@ -142,7 +142,7 @@ MINIEXIV_EXPORT miniexiv_image *miniexiv_image_open_buf(const uint8_t *buf,
 }
 
 MINIEXIV_EXPORT int
-miniexiv_image_clear_and_write(const miniexiv_image *image) {
+miniexiv_image_clear_and_write(miniexiv_image *image) {
   if (!image) {
     set_last_error(ErrorMessages::IMAGE_NULL);
     return MINIEXIV_ERROR;
@@ -186,7 +186,7 @@ miniexiv_image_clear_and_write(const miniexiv_image *image) {
  * @see miniexiv_image_metadata_write()
  * @see miniexiv_image_clear_and_write()
  */
-MINIEXIV_EXPORT int miniexiv_image_clear(const miniexiv_image *image) {
+MINIEXIV_EXPORT int miniexiv_image_clear(miniexiv_image *image) {
   if (!image) {
     set_last_error(ErrorMessages::IMAGE_NULL);
     return MINIEXIV_ERROR;
@@ -209,7 +209,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear(const miniexiv_image *image) {
   }
 }
 
-MINIEXIV_EXPORT int miniexiv_image_clear_exif(const miniexiv_image *image) {
+MINIEXIV_EXPORT int miniexiv_image_clear_exif(miniexiv_image *image) {
   if (!image) {
     set_last_error(ErrorMessages::IMAGE_NULL);
     return MINIEXIV_ERROR;
@@ -230,7 +230,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear_exif(const miniexiv_image *image) {
   }
 }
 
-MINIEXIV_EXPORT int miniexiv_image_clear_iptc(const miniexiv_image *image) {
+MINIEXIV_EXPORT int miniexiv_image_clear_iptc(miniexiv_image *image) {
   if (!image) {
     set_last_error(ErrorMessages::IMAGE_NULL);
     return MINIEXIV_ERROR;
@@ -252,7 +252,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear_iptc(const miniexiv_image *image) {
   }
 }
 
-MINIEXIV_EXPORT int miniexiv_image_clear_icc(const miniexiv_image *image) {
+MINIEXIV_EXPORT int miniexiv_image_clear_icc(miniexiv_image *image) {
 
   if (!image) {
     set_last_error(ErrorMessages::IMAGE_NULL);
@@ -273,7 +273,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear_icc(const miniexiv_image *image) {
     return MINIEXIV_ERROR;
   }
 }
-MINIEXIV_EXPORT int miniexiv_image_clear_xmp(const miniexiv_image *image){
+MINIEXIV_EXPORT int miniexiv_image_clear_xmp(miniexiv_image *image){
   if (!image) {
     set_last_error(ErrorMessages::IMAGE_NULL);
     return MINIEXIV_ERROR;
@@ -293,7 +293,7 @@ MINIEXIV_EXPORT int miniexiv_image_clear_xmp(const miniexiv_image *image){
     return MINIEXIV_ERROR;
   }
 }
-MINIEXIV_EXPORT int miniexiv_image_clear_comment(const miniexiv_image *image) {
+MINIEXIV_EXPORT int miniexiv_image_clear_comment(miniexiv_image *image) {
   if (!image) {
     set_last_error(ErrorMessages::IMAGE_NULL);
     return MINIEXIV_ERROR;
@@ -523,7 +523,7 @@ MINIEXIV_EXPORT int miniexiv_image_get_exif_string(const miniexiv_image *image,
     set_last_error(ErrorMessages::OUT_PTR_NULL);
     return MINIEXIV_ERROR;
   }
-
+    *out_value = nullptr;
   try {
     const Exiv2::ExifData &exif = image->exiv2_image->exifData();
 
@@ -715,7 +715,7 @@ MINIEXIV_EXPORT int miniexiv_image_export_buf(const miniexiv_image *image,
 
 MINIEXIV_EXPORT void miniexiv_free_buffer(uint8_t *buffer) { free(buffer); }
 
-MINIEXIV_EXPORT int miniexiv_image_set_xmp_string(const miniexiv_image *image,
+MINIEXIV_EXPORT int miniexiv_image_set_xmp_string(miniexiv_image *image,
                                                   const char *key,
                                                   const char *value) {
   if (!image) {
@@ -830,7 +830,7 @@ MINIEXIV_EXPORT int miniexiv_image_get_xmp_string(const miniexiv_image *image,
     }
   }
 
-  MINIEXIV_EXPORT int miniexiv_image_remove_xmp(const miniexiv_image *image,
+  MINIEXIV_EXPORT int miniexiv_image_remove_xmp(miniexiv_image *image,
                                                 const char *key) {
     if (!image) {
       set_last_error(ErrorMessages::IMAGE_NULL);
@@ -902,7 +902,7 @@ MINIEXIV_EXPORT int miniexiv_image_get_xmp_string(const miniexiv_image *image,
   }
 
   MINIEXIV_EXPORT int miniexiv_image_set_iptc_string(
-      const miniexiv_image *image, const char *key, const char *value) {
+      miniexiv_image *image, const char *key, const char *value) {
     if (!image) {
       set_last_error(ErrorMessages::IMAGE_NULL);
       return MINIEXIV_ERROR;
@@ -1017,7 +1017,7 @@ MINIEXIV_EXPORT int miniexiv_image_get_xmp_string(const miniexiv_image *image,
     }
   }
 
-  MINIEXIV_EXPORT int miniexiv_image_remove_iptc(const miniexiv_image *image,
+  MINIEXIV_EXPORT int miniexiv_image_remove_iptc(miniexiv_image *image,
                                                  const char *key) {
     if (!image) {
       set_last_error(ErrorMessages::IMAGE_NULL);
