@@ -6,7 +6,7 @@
      */
 
     #include "miniexiv/miniexiv.h"
-
+    #include <cmath>
     #include <cstdint>
     #include <cstdlib>
     #include <filesystem>
