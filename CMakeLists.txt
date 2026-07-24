@@ -4,9 +4,9 @@ cmake_minimum_required(VERSION 3.25)
 # Version
 # ------------------------------------------------------------------------------
 
-set(MINIEXIV_FALLBACK_VERSION "0.6.2")
+set(MINIEXIV_FALLBACK_VERSION "0.6.3")
 set(GIT_RAW_VERSION "")
-
+set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
 find_package(Git QUIET)
 
 if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")

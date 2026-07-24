@@ -1434,8 +1434,7 @@ MINIEXIV_EXPORT miniexiv_access_mode miniexiv_image_check_metadata_mode(
     }
 }
 
-MINIEXIV_EXPORT int
-miniexiv_image_get_gps(const miniexiv_image *image,
+MINIEXIV_EXPORT int miniexiv_image_get_gps(const miniexiv_image *image,
                        double *latitude,
                        double *longitude) {
     if (latitude) {
