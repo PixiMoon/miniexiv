@@ -21,6 +21,12 @@ namespace ErrorMessages {
     const std::string MEMORY_FAIL        = "Memory allocation failed";
     const std::string NO_ERROR           = "No Error";
     const std::string KEY_NOT_FOUND      = "Key not found";
+    const std::string GPS_NOT_FOUND           = "GPS coordinates not found";
+    const std::string GPS_INVALID_DATA        = "Invalid GPS data";
+    const std::string GPS_INVALID_NUMBER      = "GPS coordinate must be a finite number";
+    const std::string GPS_INVALID_LATITUDE    = "Latitude must be between -90 and 90 degrees";
+    const std::string GPS_INVALID_LONGITUDE   = "Longitude must be between -180 and 180 degrees";
+    const std::string UNKNOWN_EX_GPS          = "Unknown C++ exception inside GPS operation";
     const std::string UNKNOWN_EX_ERROR = "Unknown C++ exception";
     const std::string INVALID_METADATA_ID = "Invalid Metadata Id";
     const std::string UNKNOWN_EX_EXPORT_BUF = "Unknown C++ exception when export buffer";

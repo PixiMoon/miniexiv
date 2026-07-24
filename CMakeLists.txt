@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 # Version
 # ------------------------------------------------------------------------------
 
-set(MINIEXIV_FALLBACK_VERSION "0.6.0")
+set(MINIEXIV_FALLBACK_VERSION "0.6.2")
 set(GIT_RAW_VERSION "")
 
 find_package(Git QUIET)

@@ -1433,3 +1433,127 @@ MINIEXIV_EXPORT miniexiv_access_mode miniexiv_image_check_metadata_mode(
         return MINIEXIV_ACCESS_ERROR;
     }
 }
+
+MINIEXIV_EXPORT int
+miniexiv_image_get_gps(const miniexiv_image *image,
+                       double *latitude,
+                       double *longitude) {
+    if (latitude) {
+        *latitude = 0.0;
+    }
+
+    if (longitude) {
+        *longitude = 0.0;
+    }
+
+    if (!image) {
+        set_last_error(ErrorMessages::IMAGE_NULL);
+        return MINIEXIV_ERROR;
+    }
+
+    if (!latitude || !longitude) {
+        set_last_error(ErrorMessages::OUT_PTR_NULL);
+        return MINIEXIV_ERROR;
+    }
+
+    try {
+        const Exiv2::ExifData &exif = image->exiv2_image->exifData();
+
+        const auto lat = exif.findKey(
+            Exiv2::ExifKey("Exif.GPSInfo.GPSLatitude"));
+
+        const auto lat_ref = exif.findKey(
+            Exiv2::ExifKey("Exif.GPSInfo.GPSLatitudeRef"));
+
+        const auto lon = exif.findKey(
+            Exiv2::ExifKey("Exif.GPSInfo.GPSLongitude"));
+
+        const auto lon_ref = exif.findKey(
+            Exiv2::ExifKey("Exif.GPSInfo.GPSLongitudeRef"));
+
+        if (lat == exif.end() || lat_ref == exif.end() ||
+            lon == exif.end() || lon_ref == exif.end()) {
+            set_last_error(ErrorMessages::GPS_NOT_FOUND);
+            return MINIEXIV_ERROR;
+        }
+
+        if (lat->count() < 3 || lon->count() < 3) {
+            set_last_error(ErrorMessages::GPS_INVALID_DATA);
+            return MINIEXIV_ERROR;
+        }
+
+        const Exiv2::Rational lat_d = lat->toRational(0);
+        const Exiv2::Rational lat_m = lat->toRational(1);
+        const Exiv2::Rational lat_s = lat->toRational(2);
+
+        const Exiv2::Rational lon_d = lon->toRational(0);
+        const Exiv2::Rational lon_m = lon->toRational(1);
+        const Exiv2::Rational lon_s = lon->toRational(2);
+
+        if (lat_d.second == 0 || lat_m.second == 0 ||
+            lat_s.second == 0 || lon_d.second == 0 ||
+            lon_m.second == 0 || lon_s.second == 0) {
+            set_last_error(ErrorMessages::GPS_INVALID_DATA);
+            return MINIEXIV_ERROR;
+        }
+
+        double result_latitude =
+            static_cast<double>(lat_d.first) / lat_d.second +
+            static_cast<double>(lat_m.first) / lat_m.second / 60.0 +
+            static_cast<double>(lat_s.first) / lat_s.second / 3600.0;
+
+        double result_longitude =
+            static_cast<double>(lon_d.first) / lon_d.second +
+            static_cast<double>(lon_m.first) / lon_m.second / 60.0 +
+            static_cast<double>(lon_s.first) / lon_s.second / 3600.0;
+
+        const std::string latitude_ref = lat_ref->toString();
+        const std::string longitude_ref = lon_ref->toString();
+
+        if (latitude_ref.empty() || longitude_ref.empty()) {
+            set_last_error(ErrorMessages::GPS_INVALID_DATA);
+            return MINIEXIV_ERROR;
+        }
+
+        const char lat_direction = latitude_ref[0];
+        const char lon_direction = longitude_ref[0];
+
+        if (lat_direction == 'S' || lat_direction == 's') {
+            result_latitude = -result_latitude;
+        } else if (lat_direction != 'N' && lat_direction != 'n') {
+            set_last_error(ErrorMessages::GPS_INVALID_DATA);
+            return MINIEXIV_ERROR;
+        }
+
+        if (lon_direction == 'W' || lon_direction == 'w') {
+            result_longitude = -result_longitude;
+        } else if (lon_direction != 'E' && lon_direction != 'e') {
+            set_last_error(ErrorMessages::GPS_INVALID_DATA);
+            return MINIEXIV_ERROR;
+        }
+
+        if (result_latitude < -90.0 || result_latitude > 90.0) {
+            set_last_error(ErrorMessages::GPS_INVALID_LATITUDE);
+            return MINIEXIV_ERROR;
+        }
+
+        if (result_longitude < -180.0 || result_longitude > 180.0) {
+            set_last_error(ErrorMessages::GPS_INVALID_LONGITUDE);
+            return MINIEXIV_ERROR;
+        }
+
+        *latitude = result_latitude;
+        *longitude = result_longitude;
+
+        return MINIEXIV_OK;
+    } catch (const Exiv2::Error &e) {
+        set_last_error(e.what());
+        return MINIEXIV_ERROR;
+    } catch (const std::exception &e) {
+        set_last_error(e.what());
+        return MINIEXIV_ERROR;
+    } catch (...) {
+        set_last_error(ErrorMessages::UNKNOWN_EX_GPS);
+        return MINIEXIV_ERROR;
+    }
+}

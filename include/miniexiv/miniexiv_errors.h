@@ -23,6 +23,12 @@ namespace ErrorMessages {
     extern const std::string MEMORY_FAIL;
     extern const std::string NO_ERROR;
     extern const std::string KEY_NOT_FOUND;
+    extern const std::string GPS_NOT_FOUND ;
+    extern const std::string GPS_INVALID_DATA;
+    extern const std::string GPS_INVALID_NUMBER;
+    extern const std::string GPS_INVALID_LATITUDE;
+    extern const std::string GPS_INVALID_LONGITUDE;
+    extern const std::string UNKNOWN_EX_GPS;
     extern const std::string INVALID_METADATA_ID;
     extern const std::string UNKNOWN_EX_ERROR;
     extern const std::string UNKNOWN_EX_EXPORT_BUF;

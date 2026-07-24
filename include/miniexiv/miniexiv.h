@@ -1201,6 +1201,20 @@ MINIEXIV_EXPORT miniexiv_access_mode miniexiv_image_check_metadata_mode(
     miniexiv_metadata_id metadata
 );
 
+/**
+ * @brief Gets GPS coordinates in decimal degrees.
+ *
+ * @param image Image handle.
+ * @param latitude Output latitude from -90.0 to 90.0.
+ * @param longitude Output longitude from -180.0 to 180.0.
+ *
+ * @return MINIEXIV_OK on success.
+ * @return MINIEXIV_ERROR on failure.
+ */
+MINIEXIV_EXPORT int
+miniexiv_image_get_gps(const miniexiv_image *image,
+                       double *latitude,
+                       double *longitude);
 #ifdef __cplusplus
 }
 #endif
