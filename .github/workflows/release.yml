@@ -106,7 +106,7 @@ jobs:
             & C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
           }
 
-          if (!(Test-Path "${{ github.workspace }}\ports\vcpkg.json")) {
+          if (!(Test-Path "${{ github.workspace }}\vcpkg.json")) {
             throw "vcpkg.json was not found in the repository."
           }
 

@@ -1,0 +1,17 @@
+{
+  "name": "miniexiv",
+  "description": "C wrapper for Exiv2 library",
+  "homepage": "https://github.com/PixiMoon/miniexiv",
+  "license": "GPL-2.0-or-later",
+  "dependencies": [
+    "exiv2",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}
