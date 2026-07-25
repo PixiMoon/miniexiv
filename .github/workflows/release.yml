@@ -8,82 +8,65 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
-    name: Build ${{ matrix.name }}
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Linux
+          - platform: Linux
             os: ubuntu-latest
-            artifact: Linux
-
-          - name: macOS
+            archive_extension: tar.gz
+          - platform: macOS
             os: macos-latest
-            artifact: macOS
-
-          - name: Windows
+            archive_extension: tar.gz
+          - platform: Windows
             os: windows-latest
-            artifact: Windows
-
-    runs-on: ${{ matrix.os }}
+            archive_extension: zip
 
     steps:
-      # ------------------------------------------------------------
-      # Checkout
-      # ------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ------------------------------------------------------------
-      # Verify release tag and files
-      # ------------------------------------------------------------
-      - name: Check source files
+      - name: Validate release input
         shell: bash
         run: |
-          echo "Release tag: ${GITHUB_REF_NAME}"
-          echo "Repository files:"
-          ls -la
-
+          set -euo pipefail
+          case "${GITHUB_REF_NAME}" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "Invalid release tag: ${GITHUB_REF_NAME}"
+              exit 1
+              ;;
+          esac
           test -f CMakeLists.txt
           test -f README.md
           test -f LICENSE
 
-      # ------------------------------------------------------------
-      # Linux build tools
-      # ------------------------------------------------------------
       - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            ninja-build \
-            pkg-config \
-            rpm
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config
 
-      # ------------------------------------------------------------
-      # macOS build tools
-      # ------------------------------------------------------------
       - name: Install build tools (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          brew update
-          brew install \
-            cmake \
-            ninja \
-            pkg-config
+          set -euo pipefail
+          brew install cmake ninja pkg-config
 
-      # ------------------------------------------------------------
-      # Windows MSVC & Build tools
-      # ------------------------------------------------------------
       - name: Set up MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -94,19 +77,18 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install cmake ninja -y --no-progress
+          $ErrorActionPreference = "Stop"
+          choco install cmake ninja --yes --no-progress
 
-      # ------------------------------------------------------------
-      # Configure (Build dependencies from source via CMake)
-      # ------------------------------------------------------------
       - name: Configure (Linux and macOS)
         if: runner.os != 'Windows'
         shell: bash
         run: |
+          set -euo pipefail
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
             -DMINIEXIV_BUILD_DEPENDENCIES=ON \
-            -DBUILD_SHARED_LIBS=OFF \
             -DBUILD_TESTING=ON \
             -DBUILD_DOCS=OFF
 
@@ -114,108 +96,106 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           cmake -S . -B build -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_SHARED_LIBS=ON `
             -DMINIEXIV_BUILD_DEPENDENCIES=ON `
-            -DBUILD_SHARED_LIBS=OFF `
             -DBUILD_TESTING=ON `
             -DBUILD_DOCS=OFF
 
-      # ------------------------------------------------------------
-      # Build
-      # ------------------------------------------------------------
       - name: Build
         shell: bash
         run: |
-          cmake --build build --config Release
+          set -euo pipefail
+          cmake --build build --config Release --parallel
 
-      # ------------------------------------------------------------
-      # Tests
-      # ------------------------------------------------------------
       - name: Run tests
         shell: bash
         run: |
-          ctest \
-            --test-dir build \
-            --build-config Release \
-            --output-on-failure
+          set -euo pipefail
+          ctest --test-dir build --build-config Release --output-on-failure
 
-      # ------------------------------------------------------------
-      # Binary packages
-      # ------------------------------------------------------------
-      - name: Create binary packages
-        shell: bash
-        working-directory: build
-        run: |
-          cpack \
-            --config CPackConfig.cmake \
-            -C Release
-
-      # ------------------------------------------------------------
-      # Source package
-      # ------------------------------------------------------------
-      - name: Create source packages
-        if: runner.os == 'Linux'
-        shell: bash
-        working-directory: build
-        run: |
-          cpack \
-            --config CPackSourceConfig.cmake
-
-      # ------------------------------------------------------------
-      # Package checksums
-      # ------------------------------------------------------------
-      - name: Create checksums
+      - name: Stage MiniExiv
         shell: bash
         run: |
-          find build -maxdepth 1 -type f \
-            \( -name "*.tar.gz" \
-            -o -name "*.zip" \
-            -o -name "*.deb" \
-            -o -name "*.rpm" \) \
-            -print0 |
-          while IFS= read -r -d '' file; do
-            if command -v sha256sum >/dev/null 2>&1; then
-              sha256sum "$file" > "$file.sha256"
-            else
-              shasum -a 256 "$file" > "$file.sha256"
-            fi
-          done
+          set -euo pipefail
+          rm -rf stage
+          cmake --install build \
+            --config Release \
+            --prefix "$PWD/stage" \
+            --component MiniExiv
 
-      # ------------------------------------------------------------
-      # Show generated packages
-      # ------------------------------------------------------------
-      - name: List packages
+          test -d stage/include/miniexiv
+
+          echo "Staged files:"
+          find stage \( -type f -o -type l \) | sort
+
+          if find stage \( -type f -o -type l \) \
+            | grep -E '/(libz|libexpat|libexiv2|zlib|expat|exiv2)([./-]|$)'; then
+            echo "A bundled dependency unexpectedly entered the release package."
+            exit 1
+          fi
+
+      - name: Set package name
         shell: bash
         run: |
-          echo "Generated packages:"
-          find . -maxdepth 2 -type f \
-            \( -name "*.tar.gz" \
-            -o -name "*.zip" \
-            -o -name "*.deb" \
-            -o -name "*.rpm" \
-            -o -name "*.sha256" \) \
-            -print
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          OS_NAME="$(printf '%s' '${{ runner.os }}' | tr '[:upper:]' '[:lower:]')"
+          ARCH_NAME="$(printf '%s' "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')"
+          PACKAGE_NAME="miniexiv-${VERSION}-${OS_NAME}-${ARCH_NAME}-shared"
+          echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "${GITHUB_ENV}"
+          echo "PACKAGE_FILE=${PACKAGE_NAME}.${{ matrix.archive_extension }}" >> "${GITHUB_ENV}"
 
-      # ------------------------------------------------------------
-      # Upload workflow artifacts
-      # ------------------------------------------------------------
+      - name: Create tar.gz package
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C stage -czf "${PACKAGE_FILE}" .
+
+      - name: Create ZIP package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path $env:PACKAGE_FILE) {
+            Remove-Item $env:PACKAGE_FILE -Force
+          }
+          Compress-Archive `
+            -Path "stage\*" `
+            -DestinationPath $env:PACKAGE_FILE `
+            -CompressionLevel Optimal
+
+      - name: Validate package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "${PACKAGE_FILE}"
+          ls -lh "${PACKAGE_FILE}"
+
+      - name: Create SHA-256 checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${PACKAGE_FILE}" > "${PACKAGE_FILE}.sha256"
+          else
+            shasum -a 256 "${PACKAGE_FILE}" > "${PACKAGE_FILE}.sha256"
+          fi
+          cat "${PACKAGE_FILE}.sha256"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: miniexiv-${{ matrix.artifact }}
+          name: ${{ env.PACKAGE_NAME }}
           if-no-files-found: error
           retention-days: 14
           path: |
-            build/*.tar.gz
-            build/*.zip
-            build/*.deb
-            build/*.rpm
-            build/*.sha256
+            ${{ env.PACKAGE_FILE }}
+            ${{ env.PACKAGE_FILE }}.sha256
 
-  # ==================================================================
-  # GitHub Release
-  # ==================================================================
   release:
     name: Create GitHub Release
     needs: build
@@ -231,7 +211,8 @@ jobs:
       - name: List release files
         shell: bash
         run: |
-          find artifacts -type f -print
+          set -euo pipefail
+          find artifacts -type f | sort
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -241,6 +222,4 @@ jobs:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
             artifacts/**/*.sha256
