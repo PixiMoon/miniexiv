@@ -54,9 +54,9 @@ jobs:
           test -f LICENSE
 
       # ------------------------------------------------------------
-      # Linux dependencies
+      # Linux build tools
       # ------------------------------------------------------------
-      - name: Install dependencies (Linux)
+      - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
@@ -66,13 +66,12 @@ jobs:
             cmake \
             ninja-build \
             pkg-config \
-            libexiv2-dev \
             rpm
 
       # ------------------------------------------------------------
-      # macOS dependencies
+      # macOS build tools
       # ------------------------------------------------------------
-      - name: Install dependencies (macOS)
+      - name: Install build tools (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
@@ -80,11 +79,10 @@ jobs:
           brew install \
             cmake \
             ninja \
-            pkg-config \
-            exiv2
+            pkg-config
 
       # ------------------------------------------------------------
-      # Windows dependencies
+      # Windows MSVC & Build tools
       # ------------------------------------------------------------
       - name: Set up MSVC
         if: runner.os == 'Windows'
@@ -92,30 +90,14 @@ jobs:
         with:
           arch: x64
 
-      - name: Install dependencies (Windows)
+      - name: Install build tools (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           choco install cmake ninja -y --no-progress
 
-          if (!(Test-Path "C:\vcpkg\vcpkg.exe")) {
-            if (!(Test-Path "C:\vcpkg")) {
-              git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-            }
-
-            & C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-          }
-
-          if (!(Test-Path "${{ github.workspace }}\vcpkg.json")) {
-            throw "vcpkg.json was not found in the repository."
-          }
-
-          & C:\vcpkg\vcpkg.exe install `
-            --x-manifest-root="${{ github.workspace }}" `
-            --triplet=x64-windows
-
       # ------------------------------------------------------------
-      # Configure
+      # Configure (Build dependencies from source via CMake)
       # ------------------------------------------------------------
       - name: Configure (Linux and macOS)
         if: runner.os != 'Windows'
@@ -123,7 +105,8 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=ON \
+            -DMINIEXIV_BUILD_DEPENDENCIES=ON \
+            -DBUILD_SHARED_LIBS=OFF \
             -DBUILD_TESTING=ON \
             -DBUILD_DOCS=OFF
 
@@ -133,11 +116,10 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DBUILD_SHARED_LIBS=ON `
+            -DMINIEXIV_BUILD_DEPENDENCIES=ON `
+            -DBUILD_SHARED_LIBS=OFF `
             -DBUILD_TESTING=ON `
-            -DBUILD_DOCS=OFF `
-            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+            -DBUILD_DOCS=OFF
 
       # ------------------------------------------------------------
       # Build
@@ -171,7 +153,6 @@ jobs:
 
       # ------------------------------------------------------------
       # Source package
-      # Create it only once to avoid duplicate source archives.
       # ------------------------------------------------------------
       - name: Create source packages
         if: runner.os == 'Linux'
