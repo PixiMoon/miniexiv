@@ -1,5 +1,0 @@
-option('build_dependencies',
-  type : 'boolean',
-  value : true,
-  description : 'Fetch and build Exiv2 and its dependencies from source'
-)
