@@ -67,9 +67,18 @@ include(cmake/findDependencies.cmake REQUIRED)
 include(cmake/compilerFlags.cmake REQUIRED)
 include(cmake/generateConfigFile.cmake REQUIRED)
 
-# Убираем глобальный include_directories и заменяем на локальное требование
+include(FetchContent)
+
 if(NOT EXV_HAVE_STD_FORMAT)
-  find_package(fmt "5.0.0" REQUIRED)
+    message(STATUS "std::format unavailable, fetching fmt...")
+
+    FetchContent_Declare(
+        fmt
+        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+        GIT_TAG 12.2.0   # или нужную версию
+    )
+
+    FetchContent_MakeAvailable(fmt)
 endif()
 
 if(EXIV2_ENABLE_XMP)

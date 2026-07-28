@@ -225,6 +225,49 @@ set(CMAKE_SKIP_INSTALL_RULES ON)
 
     # Exiv2 конфигурируется только после zlib и Expat.
     FetchContent_MakeAvailable(exiv2)
+
+# ------------------------------------------------------------------
+# Make bundled dependencies visible for static Exiv2
+# ------------------------------------------------------------------
+
+if(TARGET exiv2lib_int)
+
+    target_include_directories(exiv2lib_int PRIVATE
+        ${zlib_SOURCE_DIR}
+        ${zlib_BINARY_DIR}
+        ${expat_SOURCE_DIR}/expat/lib
+    )
+
+    target_link_libraries(exiv2lib_int PRIVATE
+        ZLIB::ZLIB
+        EXPAT::EXPAT
+    )
+
+endif()
+
+
+if(TARGET exiv2-xmp)
+
+    target_include_directories(exiv2-xmp PRIVATE
+        ${expat_SOURCE_DIR}/expat/lib
+    )
+
+    target_link_libraries(exiv2-xmp PRIVATE
+        EXPAT::EXPAT
+    )
+
+endif()
+
+
+if(TARGET exiv2lib)
+
+    target_link_libraries(exiv2lib PRIVATE
+        ZLIB::ZLIB
+        EXPAT::EXPAT
+    )
+
+endif()
+
         set(
     CMAKE_SKIP_INSTALL_RULES
     "${MINIEXIV_SAVED_SKIP_INSTALL_RULES}"
@@ -316,7 +359,7 @@ endif()
 target_link_libraries(
         miniexiv
         PRIVATE
-        "${EXIV2_TARGET}"
+        Exiv2::exiv2lib
 )
 
 # ------------------------------------------------------------------------------
@@ -441,13 +484,6 @@ install(
         MiniExiv
 )
 
-export(
-        EXPORT miniexivTargets
-        FILE
-        "${CMAKE_CURRENT_BINARY_DIR}/miniexivTargets.cmake"
-        NAMESPACE
-        miniexiv::
-)
 
 # ------------------------------------------------------------------------------
 # Packaging
