@@ -255,7 +255,8 @@ jobs:
           $ErrorActionPreference = "Stop"
 
           cmake -S . -B build `
-            -G Ninja `
+            -G "Visual Studio 18 2026" `
+            -A X64 `
             -DCMAKE_BUILD_TYPE=Release `
             -DBUILD_SHARED_LIBS=ON `
             -DMINIEXIV_BUILD_DEPENDENCIES=ON `
