@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }} (${{ matrix.build_type }})
+    name: Build ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -23,27 +23,14 @@ jobs:
         include:
           - platform: Linux
             os: ubuntu-latest
-            build_type: shared
             archive_extension: tar.gz
-          - platform: Linux
-            os: ubuntu-latest
-            build_type: static
-            archive_extension: tar.gz
+
           - platform: macOS
             os: macos-latest
-            build_type: shared
             archive_extension: tar.gz
-          - platform: macOS
-            os: macos-latest
-            build_type: static
-            archive_extension: tar.gz
+
           - platform: Windows
             os: windows-latest
-            build_type: shared
-            archive_extension: zip
-          - platform: Windows
-            os: windows-latest
-            build_type: static
             archive_extension: zip
 
     steps:
@@ -56,30 +43,40 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "${GITHUB_REF_NAME}" in
-            v[0-9]*.[0-9]*.[0-9]*) ;;
-            *)
-              echo "Invalid release tag: ${GITHUB_REF_NAME}"
-              exit 1
-              ;;
-          esac
+
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
           test -f CMakeLists.txt
           test -f README.md
           test -f LICENSE
+
+      # ------------------------------------------------------------------------
+      # Build tools
+      # ------------------------------------------------------------------------
 
       - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
+
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build pkg-config
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            rpm
 
       - name: Install build tools (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
+
           brew install cmake ninja pkg-config
 
       - name: Set up MSVC (Windows)
@@ -88,138 +85,422 @@ jobs:
         with:
           arch: x64
 
-      - name: Configure CMake
+      # ------------------------------------------------------------------------
+      # Shared build
+      # ------------------------------------------------------------------------
+
+      - name: Configure shared library
         shell: bash
         run: |
           set -euo pipefail
-          
-          if [ "${{ matrix.build_type }}" = "shared" ]; then
-            SHARED_FLAG="ON"
-          else
-            SHARED_FLAG="OFF"
-          fi
 
-          cmake -S . -B build -G Ninja \
+          cmake \
+            -S . \
+            -B build-shared \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=${SHARED_FLAG} \
+            -DBUILD_SHARED_LIBS=ON \
             -DMINIEXIV_BUILD_DEPENDENCIES=ON \
             -DBUILD_TESTING=ON \
             -DBUILD_DOCS=OFF
 
-      - name: Build
+      - name: Build shared library
         shell: bash
         run: |
           set -euo pipefail
-          cmake --build build --config Release --parallel
 
-      - name: Run tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          ctest --test-dir build --build-config Release --output-on-failure
-
-      - name: Stage MiniExiv
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf stage
-          cmake --install build \
+          cmake \
+            --build build-shared \
             --config Release \
-            --prefix "$PWD/stage" \
+            --parallel
+
+      - name: Test shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ctest \
+            --test-dir build-shared \
+            --build-config Release \
+            --output-on-failure
+
+      - name: Install shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf package-root
+          mkdir -p package-root/shared
+
+          cmake \
+            --install build-shared \
+            --config Release \
+            --prefix "$PWD/package-root/shared" \
             --component MiniExiv
 
-          test -d stage/include/miniexiv
+      # ------------------------------------------------------------------------
+      # Static build
+      # ------------------------------------------------------------------------
 
-          echo "Staged files:"
-          find stage \( -type f -o -type l \) | sort
+      - name: Configure static library
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          if find stage \( -type f -o -type l \) \
-            | grep -E '/(libz|libexpat|libexiv2|zlib|expat|exiv2)([./-]|$)'; then
-            echo "A bundled dependency unexpectedly entered the release package."
+          cmake \
+            -S . \
+            -B build-static \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DMINIEXIV_BUILD_DEPENDENCIES=ON \
+            -DBUILD_TESTING=ON \
+            -DBUILD_DOCS=OFF
+
+      - name: Build static library
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cmake \
+            --build build-static \
+            --config Release \
+            --parallel
+
+      - name: Test static library
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ctest \
+            --test-dir build-static \
+            --build-config Release \
+            --output-on-failure
+
+      - name: Install static library
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p package-root/static
+
+          cmake \
+            --install build-static \
+            --config Release \
+            --prefix "$PWD/package-root/static" \
+            --component MiniExiv
+
+      # ------------------------------------------------------------------------
+      # Validate staged files
+      # ------------------------------------------------------------------------
+
+      - name: Validate staged files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -d package-root/shared/include/miniexiv
+          test -d package-root/static/include/miniexiv
+
+          echo "Packaged files:"
+          find package-root \( -type f -o -type l \) | sort
+
+          DEPENDENCY_FILES="$(
+            find package-root \( -type f -o -type l \) \
+              | grep -E '/(libz|libexpat|libexiv2|zlib|expat|exiv2)([./-]|$)' \
+              || true
+          )"
+
+          if [ -n "${DEPENDENCY_FILES}" ]; then
+            echo "Bundled dependency files unexpectedly entered the package:"
+            echo "${DEPENDENCY_FILES}"
             exit 1
           fi
 
-      - name: Verify Monolithic Binary (Shared linkage check)
-        if: matrix.build_type == 'shared'
+      # ------------------------------------------------------------------------
+      # Verify monolithic shared library
+      # ------------------------------------------------------------------------
+
+      - name: Verify shared library (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== Verifying zero external dependency linkage ==="
 
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            DYNAMIC_LIB=$(find stage -name "libminiexiv*.dylib" | head -n 1)
-            echo "Checking macOS library: $DYNAMIC_LIB"
-            
-            LEAKS=$(otool -L "$DYNAMIC_LIB" | grep -E '(libexpat|libz|libexiv2)' || true)
-            if [ -n "$LEAKS" ]; then
-              echo "ERROR: Dynamic dependency leak detected in shared dylib:"
-              echo "$LEAKS"
-              exit 1
-            fi
+          DYNAMIC_LIB="$(
+            find package-root/shared \
+              -type f \
+              -name 'libminiexiv*.so*' \
+              | head -n 1
+          )"
 
-          elif [ "${{ runner.os }}" = "Linux" ]; then
-            DYNAMIC_LIB=$(find stage -name "libminiexiv*.so*" | head -n 1)
-            echo "Checking Linux library: $DYNAMIC_LIB"
-            
-            LEAKS=$(ldd "$DYNAMIC_LIB" | grep -E '(libexpat|libz|libexiv2)' || true)
-            if [ -n "$LEAKS" ]; then
-              echo "ERROR: Dynamic dependency leak detected in shared .so:"
-              echo "$LEAKS"
-              exit 1
-            fi
+          if [ -z "${DYNAMIC_LIB}" ]; then
+            echo "MiniExiv shared library was not found"
+            exit 1
           fi
+
+          echo "Checking: ${DYNAMIC_LIB}"
+          ldd "${DYNAMIC_LIB}"
+
+          LEAKS="$(
+            ldd "${DYNAMIC_LIB}" \
+              | grep -E '(libexpat|libz|libexiv2)' \
+              || true
+          )"
+
+          if [ -n "${LEAKS}" ]; then
+            echo "Dynamic dependency leak detected:"
+            echo "${LEAKS}"
+            exit 1
+          fi
+
+      - name: Verify shared library (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DYNAMIC_LIB="$(
+            find package-root/shared \
+              -type f \
+              -name 'libminiexiv*.dylib' \
+              | head -n 1
+          )"
+
+          if [ -z "${DYNAMIC_LIB}" ]; then
+            echo "MiniExiv dylib was not found"
+            exit 1
+          fi
+
+          echo "Checking: ${DYNAMIC_LIB}"
+          otool -L "${DYNAMIC_LIB}"
+
+          LEAKS="$(
+            otool -L "${DYNAMIC_LIB}" \
+              | grep -E '(libexpat|libz|libexiv2)' \
+              || true
+          )"
+
+          if [ -n "${LEAKS}" ]; then
+            echo "Dynamic dependency leak detected:"
+            echo "${LEAKS}"
+            exit 1
+          fi
+
+      - name: Verify shared library (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DYNAMIC_LIB="$(
+            find package-root/shared \
+              -type f \
+              -iname 'miniexiv.dll' \
+              | head -n 1
+          )"
+
+          if [ -z "${DYNAMIC_LIB}" ]; then
+            echo "MiniExiv DLL was not found"
+            exit 1
+          fi
+
+          echo "Checking: ${DYNAMIC_LIB}"
+          dumpbin.exe /dependents "${DYNAMIC_LIB}"
+
+          LEAKS="$(
+            dumpbin.exe /dependents "${DYNAMIC_LIB}" \
+              | grep -Ei '(zlib|expat|exiv2)' \
+              || true
+          )"
+
+          if [ -n "${LEAKS}" ]; then
+            echo "Dynamic dependency leak detected:"
+            echo "${LEAKS}"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------------
+      # Native Linux packages
+      # ------------------------------------------------------------------------
+
+      - name: Create DEB and RPM packages
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCH_NAME="$(echo "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')"
+
+          mkdir -p native-packages
+
+          cpack \
+            --config build-shared/CPackConfig.cmake \
+            -C Release \
+            -G DEB \
+            -B native-packages \
+            -D "CPACK_INSTALL_CMAKE_PROJECTS=${PWD}/build-shared;miniexiv;MiniExiv;/" \
+            -D "CPACK_PACKAGE_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-shared" \
+            -D "CPACK_DEBIAN_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-shared.deb"
+
+          cpack \
+            --config build-static/CPackConfig.cmake \
+            -C Release \
+            -G DEB \
+            -B native-packages \
+            -D "CPACK_INSTALL_CMAKE_PROJECTS=${PWD}/build-static;miniexiv;MiniExiv;/" \
+            -D "CPACK_PACKAGE_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-static" \
+            -D "CPACK_DEBIAN_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-static.deb"
+
+          cpack \
+            --config build-shared/CPackConfig.cmake \
+            -C Release \
+            -G RPM \
+            -B native-packages \
+            -D "CPACK_INSTALL_CMAKE_PROJECTS=${PWD}/build-shared;miniexiv;MiniExiv;/" \
+            -D "CPACK_PACKAGE_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-shared" \
+            -D "CPACK_RPM_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-shared.rpm"
+
+          cpack \
+            --config build-static/CPackConfig.cmake \
+            -C Release \
+            -G RPM \
+            -B native-packages \
+            -D "CPACK_INSTALL_CMAKE_PROJECTS=${PWD}/build-static;miniexiv;MiniExiv;/" \
+            -D "CPACK_PACKAGE_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-static" \
+            -D "CPACK_RPM_FILE_NAME=miniexiv-${VERSION}-linux-${ARCH_NAME}-static.rpm"
+
+          echo "Native packages:"
+          find native-packages \
+            -maxdepth 1 \
+            -type f \
+            \( -name '*.deb' -o -name '*.rpm' \) \
+            -print \
+            | sort
+
+      - name: Validate DEB and RPM packages
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEB_COUNT="$(
+            find native-packages -maxdepth 1 -type f -name '*.deb' | wc -l
+          )"
+
+          RPM_COUNT="$(
+            find native-packages -maxdepth 1 -type f -name '*.rpm' | wc -l
+          )"
+
+          if [ "${DEB_COUNT}" -ne 2 ]; then
+            echo "Expected 2 DEB packages, found ${DEB_COUNT}"
+            exit 1
+          fi
+
+          if [ "${RPM_COUNT}" -ne 2 ]; then
+            echo "Expected 2 RPM packages, found ${RPM_COUNT}"
+            exit 1
+          fi
+
+          for PACKAGE in native-packages/*.deb; do
+            echo "=== ${PACKAGE} ==="
+            dpkg-deb --info "${PACKAGE}"
+            dpkg-deb --contents "${PACKAGE}"
+          done
+
+          for PACKAGE in native-packages/*.rpm; do
+            echo "=== ${PACKAGE} ==="
+            rpm -qip "${PACKAGE}"
+            rpm -qlp "${PACKAGE}"
+          done
+
+      # ------------------------------------------------------------------------
+      # Combined archive
+      # ------------------------------------------------------------------------
 
       - name: Set package name
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="${GITHUB_REF_NAME#v}"
-          
-          RUNNER_OS_LOWER=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
-          RUNNER_ARCH_LOWER=$(echo "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')
-          
-          PACKAGE_NAME="miniexiv-${VERSION}-${RUNNER_OS_LOWER}-${RUNNER_ARCH_LOWER}-${{ matrix.build_type }}"
-          
+          OS_NAME="$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')"
+          ARCH_NAME="$(echo "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')"
+
+          PACKAGE_NAME="miniexiv-${VERSION}-${OS_NAME}-${ARCH_NAME}"
+          PACKAGE_FILE="${PACKAGE_NAME}.${{ matrix.archive_extension }}"
+
           echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "${GITHUB_ENV}"
-          echo "PACKAGE_FILE=${PACKAGE_NAME}.${{ matrix.archive_extension }}" >> "${GITHUB_ENV}"
+          echo "PACKAGE_FILE=${PACKAGE_FILE}" >> "${GITHUB_ENV}"
 
       - name: Create tar.gz package
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
-          tar -C stage -czf "${PACKAGE_FILE}" .
+
+          tar \
+            -C package-root \
+            -czf "${PACKAGE_FILE}" \
+            shared \
+            static
 
       - name: Create ZIP package
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
+
           if (Test-Path $env:PACKAGE_FILE) {
             Remove-Item $env:PACKAGE_FILE -Force
           }
+
           Compress-Archive `
-            -Path "stage\*" `
+            -Path "package-root\shared", "package-root\static" `
             -DestinationPath $env:PACKAGE_FILE `
             -CompressionLevel Optimal
 
-      - name: Validate package
+      - name: Validate combined archive
         shell: bash
         run: |
           set -euo pipefail
+
           test -s "${PACKAGE_FILE}"
           ls -lh "${PACKAGE_FILE}"
 
-      - name: Create SHA-256 checksum
+      # ------------------------------------------------------------------------
+      # Checksums
+      # ------------------------------------------------------------------------
+
+      - name: Create archive checksum
         shell: bash
         run: |
           set -euo pipefail
+
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum "${PACKAGE_FILE}" > "${PACKAGE_FILE}.sha256"
           else
             shasum -a 256 "${PACKAGE_FILE}" > "${PACKAGE_FILE}.sha256"
           fi
+
           cat "${PACKAGE_FILE}.sha256"
+
+      - name: Create native package checksums
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for PACKAGE in native-packages/*.deb native-packages/*.rpm; do
+            sha256sum "${PACKAGE}" > "${PACKAGE}.sha256"
+          done
+
+          cat native-packages/*.sha256
+
+      # ------------------------------------------------------------------------
+      # Upload workflow artifacts
+      # ------------------------------------------------------------------------
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -230,6 +511,14 @@ jobs:
           path: |
             ${{ env.PACKAGE_FILE }}
             ${{ env.PACKAGE_FILE }}.sha256
+            native-packages/*.deb
+            native-packages/*.rpm
+            native-packages/*.deb.sha256
+            native-packages/*.rpm.sha256
+
+  # ============================================================================
+  # GitHub Release
+  # ============================================================================
 
   release:
     name: Create GitHub Release
@@ -250,11 +539,13 @@ jobs:
           find artifacts -type f | sort
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
             artifacts/**/*.sha256

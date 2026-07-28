@@ -110,40 +110,53 @@ set(EXIV2_TARGET "")
 
 if(MINIEXIV_BUILD_DEPENDENCIES)
     message(
-            STATUS
-            "MINIEXIV_BUILD_DEPENDENCIES is ON: "
-            "fetching zlib, Expat, and Exiv2 from source..."
+        STATUS
+        "Fetching static zlib, Expat, and Exiv2 dependencies..."
     )
 
     include(FetchContent)
-
-    # 1. Включаем -fPIC для слияния статического кода в .dylib / .so
+        set(MINIEXIV_SAVED_SKIP_INSTALL_RULES "${CMAKE_SKIP_INSTALL_RULES}")
+set(CMAKE_SKIP_INSTALL_RULES ON)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER)
 
-    # Запрещаем FetchContent искать системные библиотеки через find_package
-    set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER CACHE STRING "" FORCE)
+    # Сохраняем тип библиотеки MiniExiv.
+    set(MINIEXIV_REQUESTED_BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS}")
 
-    # ==========================================================================
-    # Форсируем статическую сборку зависимостей
-    # ==========================================================================
+    # Все внутренние зависимости будут статическими.
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(EXIV2_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(BUILD_EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
-    # --------------------------------------------------------------------------
-    # 1. ZLIB
-    # --------------------------------------------------------------------------
+    # ==========================================================================
+    # zlib
+    # ==========================================================================
+
     set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
     FetchContent_Declare(
-            ZLIB
-            GIT_REPOSITORY https://github.com/madler/zlib.git
-            GIT_TAG v1.3.1
-            EXCLUDE_FROM_ALL
+        ZLIB
+        GIT_REPOSITORY https://github.com/madler/zlib.git
+        GIT_TAG v1.3.1
+        OVERRIDE_FIND_PACKAGE
+        EXCLUDE_FROM_ALL
     )
 
-    # --------------------------------------------------------------------------
-    # 2. Expat
-    # --------------------------------------------------------------------------
+    # Сначала полностью конфигурируем zlib.
+    FetchContent_MakeAvailable(ZLIB)
+
+    if(TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
+        add_library(ZLIB::ZLIB ALIAS zlibstatic)
+    elseif(TARGET zlib AND NOT TARGET ZLIB::ZLIB)
+        add_library(ZLIB::ZLIB ALIAS zlib)
+    endif()
+
+    if(NOT TARGET ZLIB::ZLIB)
+        message(FATAL_ERROR "Bundled zlib did not provide a usable target")
+    endif()
+
+    # ==========================================================================
+    # Expat
+    # ==========================================================================
+
     set(EXPAT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(EXPAT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(EXPAT_BUILD_FUZZERS OFF CACHE BOOL "" FORCE)
@@ -152,18 +165,38 @@ if(MINIEXIV_BUILD_DEPENDENCIES)
     set(EXPAT_BUILD_PKGCONFIG OFF CACHE BOOL "" FORCE)
     set(EXPAT_INSTALL OFF CACHE BOOL "" FORCE)
     set(EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(BUILD_EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
     FetchContent_Declare(
-            EXPAT
-            GIT_REPOSITORY https://github.com/libexpat/libexpat.git
-            GIT_TAG R_2_6_0
-            SOURCE_SUBDIR cmake
-            EXCLUDE_FROM_ALL
+        EXPAT
+        GIT_REPOSITORY https://github.com/libexpat/libexpat.git
+        GIT_TAG R_2_6_0
+        SOURCE_SUBDIR expat
+        OVERRIDE_FIND_PACKAGE
+        EXCLUDE_FROM_ALL
     )
 
-    # --------------------------------------------------------------------------
-    # 3. Exiv2
-    # --------------------------------------------------------------------------
+    # Затем полностью конфигурируем Expat.
+    FetchContent_MakeAvailable(EXPAT)
+
+    if(TARGET expat AND NOT TARGET EXPAT::EXPAT)
+        add_library(EXPAT::EXPAT ALIAS expat)
+    elseif(TARGET expat_static AND NOT TARGET EXPAT::EXPAT)
+        add_library(EXPAT::EXPAT ALIAS expat_static)
+    elseif(TARGET expat::expat AND NOT TARGET EXPAT::EXPAT)
+        add_library(EXPAT::EXPAT ALIAS expat::expat)
+    endif()
+
+    if(NOT TARGET EXPAT::EXPAT)
+        message(FATAL_ERROR "Bundled Expat did not provide a usable target")
+    endif()
+
+    # ==========================================================================
+    # Exiv2
+    # ==========================================================================
+
+    set(EXIV2_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
     set(EXIV2_ENABLE_XMP ON CACHE BOOL "" FORCE)
     set(EXIV2_ENABLE_PNG ON CACHE BOOL "" FORCE)
     set(EXIV2_ENABLE_BMFF ON CACHE BOOL "" FORCE)
@@ -174,54 +207,46 @@ if(MINIEXIV_BUILD_DEPENDENCIES)
     set(EXIV2_ENABLE_CURL OFF CACHE BOOL "" FORCE)
     set(EXIV2_ENABLE_WEBREADY OFF CACHE BOOL "" FORCE)
     set(EXIV2_ENABLE_NLS OFF CACHE BOOL "" FORCE)
+
     set(EXIV2_BUILD_EXIV2_COMMAND OFF CACHE BOOL "" FORCE)
     set(EXIV2_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
     set(EXIV2_BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
     set(EXIV2_BUILD_DOC OFF CACHE BOOL "" FORCE)
 
-    # Указываем Exiv2 использовать собранные цели ZLIB/EXPAT
-    set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
-    set(ZLIB_USE_STATIC_LIBS ON CACHE BOOL "" FORCE)
-    set(EXPAT_FOUND TRUE CACHE BOOL "" FORCE)
-
     FetchContent_Declare(
-            exiv2
-            GIT_REPOSITORY https://github.com/Exiv2/exiv2.git
-            GIT_TAG v0.28.8
-            EXCLUDE_FROM_ALL
+        exiv2
+        GIT_REPOSITORY https://github.com/Exiv2/exiv2.git
+        GIT_TAG v0.28.8
+        EXCLUDE_FROM_ALL
     )
 
-    # Populate and configure dependencies in correct order
-    FetchContent_MakeAvailable(ZLIB EXPAT exiv2)
-
+    # Exiv2 конфигурируется только после zlib и Expat.
+    FetchContent_MakeAvailable(exiv2)
+        set(
+    CMAKE_SKIP_INSTALL_RULES
+    "${MINIEXIV_SAVED_SKIP_INSTALL_RULES}"
+)
     if(TARGET exiv2lib)
         set(EXIV2_TARGET exiv2lib)
+    elseif(TARGET Exiv2::exiv2lib)
+        set(EXIV2_TARGET Exiv2::exiv2lib)
     else()
-        message(FATAL_ERROR "Bundled Exiv2 did not provide the expected exiv2lib target.")
+        message(
+            FATAL_ERROR
+            "Bundled Exiv2 did not provide the exiv2lib target"
+        )
     endif()
 
-    # Восстанавливаем пользовательский BUILD_SHARED_LIBS
-    set(BUILD_SHARED_LIBS "${MINIEXIV_REQUESTED_BUILD_SHARED_LIBS}" CACHE BOOL "Build MiniExiv as a shared library" FORCE)
-
-    # --------------------------------------------------------------------------
-    # ФИКС ДЛЯ MSVC: Проставляем переменные инклюдов для капризного Exiv2
-    # --------------------------------------------------------------------------
-    if(MSVC)
-        if(TARGET zlibstatic)
-            get_target_property(ZLIB_INC zlibstatic INTERFACE_INCLUDE_DIRECTORIES)
-            set(ZLIB_INCLUDE_DIR "${ZLIB_INC}" "${zlib_SOURCE_DIR}" "${zlib_BINARY_DIR}" CACHE PATH "" FORCE)
-        endif()
-        if(TARGET expat)
-            get_target_property(EXPAT_INC expat INTERFACE_INCLUDE_DIRECTORIES)
-            set(EXPAT_INCLUDE_DIR "${EXPAT_INC}" "${expat_SOURCE_DIR}/lib" CACHE PATH "" FORCE)
-        endif()
-    endif()
-
+    # Восстанавливаем выбранный пользователем тип MiniExiv.
+    set(
+        BUILD_SHARED_LIBS
+        "${MINIEXIV_REQUESTED_BUILD_SHARED_LIBS}"
+        CACHE BOOL
+        "Build MiniExiv as a shared library"
+        FORCE
+    )
 else()
-    # ==========================================================================
-    # ИСПРАВЛЕНИЕ: Ветка для системных / внешних зависимостей
-    # ==========================================================================
-    message(STATUS "MINIEXIV_BUILD_DEPENDENCIES is OFF: using system/external Exiv2...")
+    message(STATUS "Using externally installed Exiv2")
 
     find_package(Exiv2 REQUIRED)
 
@@ -230,10 +255,9 @@ else()
     elseif(TARGET exiv2lib)
         set(EXIV2_TARGET exiv2lib)
     else()
-        message(FATAL_ERROR "Found Exiv2, but neither Exiv2::exiv2lib nor exiv2lib target is available.")
+        message(FATAL_ERROR "Exiv2 target is unavailable")
     endif()
 endif()
-
 # ------------------------------------------------------------------------------
 # Generated sources
 # ------------------------------------------------------------------------------
