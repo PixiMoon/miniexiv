@@ -12,17 +12,17 @@ find_package(Git QUIET)
 
 if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
     execute_process(
-        COMMAND
+            COMMAND
             "${GIT_EXECUTABLE}" describe
             --tags
             --match "v[0-9]*.[0-9]*.[0-9]*"
             --always
-        WORKING_DIRECTORY
+            WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
-        OUTPUT_VARIABLE
+            OUTPUT_VARIABLE
             GIT_RAW_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
     )
 endif()
 
@@ -33,16 +33,16 @@ else()
 endif()
 
 project(
-    miniexiv
-    VERSION "${MINIEXIV_DETECTED_VERSION}"
-    DESCRIPTION "Lightweight C wrapper around the Exiv2 metadata library"
-    HOMEPAGE_URL "https://github.com/PixiMoon/miniexiv"
-    LANGUAGES C CXX
+        miniexiv
+        VERSION "${MINIEXIV_DETECTED_VERSION}"
+        DESCRIPTION "Lightweight C wrapper around the Exiv2 metadata library"
+        HOMEPAGE_URL "https://github.com/PixiMoon/miniexiv"
+        LANGUAGES C CXX
 )
 
 message(
-    STATUS
-    "MiniExiv version: ${PROJECT_VERSION} (Git description: ${GIT_RAW_VERSION})"
+        STATUS
+        "MiniExiv version: ${PROJECT_VERSION} (Git description: ${GIT_RAW_VERSION})"
 )
 
 include(GNUInstallDirs)
@@ -51,12 +51,12 @@ include(GNUInstallDirs)
 # Options
 # ------------------------------------------------------------------------------
 
-option(BUILD_SHARED_LIBS "Build MiniExiv as a shared library" ON)
+option(BUILD_SHARED_LIBS "Build MiniExiv as a shared library" OFF)
 option(BUILD_DOCS "Build Doxygen documentation" OFF)
 option(
-    MINIEXIV_BUILD_DEPENDENCIES
-    "Fetch and build Exiv2 and its dependencies from source"
-    OFF
+        MINIEXIV_BUILD_DEPENDENCIES
+        "Fetch and build Exiv2 and its dependencies from source"
+        ON
 )
 
 set(MINIEXIV_REQUESTED_BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS}")
@@ -85,22 +85,30 @@ if(BUILD_DOCS)
     set(DOXYGEN_OUT "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile")
 
     configure_file(
-        "${DOXYGEN_IN}"
-        "${DOXYGEN_OUT}"
-        @ONLY
+            "${DOXYGEN_IN}"
+            "${DOXYGEN_OUT}"
+            @ONLY
     )
 
     add_custom_target(
-        docs
-        COMMAND
+            docs
+            COMMAND
             "${DOXYGEN_EXECUTABLE}" "${DOXYGEN_OUT}"
-        WORKING_DIRECTORY
+            WORKING_DIRECTORY
             "${CMAKE_CURRENT_BINARY_DIR}"
-        COMMENT
+            COMMENT
             "Generating MiniExiv API documentation"
-        VERBATIM
+            VERBATIM
     )
 endif()
+
+# ------------------------------------------------------------------------------
+# Exiv2 dependency
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# Exiv2 dependency
+# ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
 # Exiv2 dependency
@@ -110,155 +118,60 @@ set(EXIV2_TARGET "")
 
 if(MINIEXIV_BUILD_DEPENDENCIES)
     message(
-        STATUS
-        "MINIEXIV_BUILD_DEPENDENCIES is ON: "
-        "fetching zlib, Expat, and Exiv2 from source..."
+            STATUS
+            "MINIEXIV_BUILD_DEPENDENCIES is ON: "
+            "fetching zlib, Expat, and Exiv2 from source..."
     )
 
     include(FetchContent)
 
-    # Build bundled dependencies statically, but restore the requested
-    # MiniExiv library type before creating the MiniExiv target.
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    # 1. Включаем -fPIC для слияния статического кода в .dylib
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-    # --------------------------------------------------------------------------
-    # 1. zlib
-    # --------------------------------------------------------------------------
+    # Запрещаем FetchContent искать системные библиотеки через find_package
+    set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER CACHE STRING "" FORCE)
 
+    # ==========================================================================
+    # КЛЮЧЕВОЙ МОМЕНТ 1: Форсируем статическую сборку зависимостей
+    # ==========================================================================
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(EXIV2_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(BUILD_EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+    # --------------------------------------------------------------------------
+    # 1. ZLIB
+    # --------------------------------------------------------------------------
     set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-
-    # zlib 1.3.1 installation switches.
-    set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
-    set(SKIP_INSTALL_LIBRARIES ON CACHE BOOL "" FORCE)
-    set(SKIP_INSTALL_HEADERS ON CACHE BOOL "" FORCE)
-    set(SKIP_INSTALL_FILES ON CACHE BOOL "" FORCE)
-
     FetchContent_Declare(
-        ZLIB
-        GIT_REPOSITORY https://github.com/madler/zlib.git
-        GIT_TAG v1.3.1
+            ZLIB
+            GIT_REPOSITORY https://github.com/madler/zlib.git
+            GIT_TAG v1.3.1
+            EXCLUDE_FROM_ALL
     )
-
-    FetchContent_MakeAvailable(ZLIB)
-
-    if(TARGET zlibstatic)
-        # Exiv2 calls find_package(ZLIB REQUIRED). Make the FetchContent target
-        # visible through the standard FindZLIB interface.
-        if(NOT TARGET ZLIB::ZLIB)
-            add_library(ZLIB::ZLIB ALIAS zlibstatic)
-        endif()
-
-        set(
-            ZLIB_INCLUDE_DIR
-            "${zlib_SOURCE_DIR}"
-            CACHE PATH
-            "Bundled zlib include directory"
-            FORCE
-        )
-
-        set(
-            ZLIB_INCLUDE_DIRS
-            "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}"
-            CACHE STRING
-            "Bundled zlib include directories"
-            FORCE
-        )
-
-        set(
-            ZLIB_LIBRARY
-            zlibstatic
-            CACHE STRING
-            "Bundled zlib target"
-            FORCE
-        )
-
-        set(
-            ZLIB_LIBRARIES
-            ZLIB::ZLIB
-            CACHE STRING
-            "Bundled zlib libraries"
-            FORCE
-        )
-
-        set(ZLIB_USE_STATIC_LIBS ON CACHE BOOL "" FORCE)
-    else()
-        message(
-            FATAL_ERROR
-            "Bundled zlib did not provide the expected zlibstatic target."
-        )
-    endif()
 
     # --------------------------------------------------------------------------
     # 2. Expat
     # --------------------------------------------------------------------------
-
-    set(EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(EXPAT_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-    set(EXPAT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(EXPAT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(EXPAT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(EXPAT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(EXPAT_BUILD_FUZZERS OFF CACHE BOOL "" FORCE)
+    set(EXPAT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(EXPAT_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
     set(EXPAT_BUILD_PKGCONFIG OFF CACHE BOOL "" FORCE)
-    set(EXPAT_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    set(EXPAT_INSTALL OFF CACHE BOOL "" FORCE)
+    set(EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
     FetchContent_Declare(
-        EXPAT
-        GIT_REPOSITORY https://github.com/libexpat/libexpat.git
-        GIT_TAG R_2_8_2
-        SOURCE_SUBDIR expat
+            EXPAT
+            GIT_REPOSITORY https://github.com/libexpat/libexpat.git
+            GIT_TAG R_2_6_0
+            SOURCE_SUBDIR cmake
+            EXCLUDE_FROM_ALL
     )
-
-    FetchContent_MakeAvailable(EXPAT)
-
-    # Make bundled Expat visible to Exiv2's find_package(EXPAT).
-    if(TARGET expat)
-        if(NOT TARGET EXPAT::EXPAT)
-            add_library(EXPAT::EXPAT ALIAS expat)
-        endif()
-
-        set(
-            EXPAT_INCLUDE_DIR
-            "${expat_SOURCE_DIR}/lib"
-            CACHE PATH
-            "Bundled Expat include directory"
-            FORCE
-        )
-
-        set(
-            EXPAT_INCLUDE_DIRS
-            "${expat_SOURCE_DIR}/lib;${expat_BINARY_DIR}"
-            CACHE STRING
-            "Bundled Expat include directories"
-            FORCE
-        )
-
-        set(
-            EXPAT_LIBRARY
-            expat
-            CACHE STRING
-            "Bundled Expat target"
-            FORCE
-        )
-
-        set(
-            EXPAT_LIBRARIES
-            EXPAT::EXPAT
-            CACHE STRING
-            "Bundled Expat libraries"
-            FORCE
-        )
-    else()
-        message(
-            FATAL_ERROR
-            "Bundled Expat did not provide the expected expat target."
-        )
-    endif()
 
     # --------------------------------------------------------------------------
     # 3. Exiv2
     # --------------------------------------------------------------------------
-
     set(EXIV2_ENABLE_XMP ON CACHE BOOL "" FORCE)
     set(EXIV2_ENABLE_PNG ON CACHE BOOL "" FORCE)
     set(EXIV2_ENABLE_BMFF ON CACHE BOOL "" FORCE)
@@ -274,82 +187,41 @@ if(MINIEXIV_BUILD_DEPENDENCIES)
     set(EXIV2_BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
     set(EXIV2_BUILD_DOC OFF CACHE BOOL "" FORCE)
 
+    # ==========================================================================
+    # КЛЮЧЕВОЙ МОМЕНТ 2: Указываем Exiv2 использовать собранные цели ZLIB/EXPAT
+    # ==========================================================================
+    set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
+    set(ZLIB_USE_STATIC_LIBS ON CACHE BOOL "" FORCE)
+    set(EXPAT_FOUND TRUE CACHE BOOL "" FORCE)
+
     FetchContent_Declare(
-        exiv2
-        GIT_REPOSITORY https://github.com/Exiv2/exiv2.git
-        GIT_TAG v0.28.8
+            exiv2
+            GIT_REPOSITORY https://github.com/Exiv2/exiv2.git
+            GIT_TAG v0.28.8
+            EXCLUDE_FROM_ALL
     )
 
-    FetchContent_MakeAvailable(exiv2)
+    # Populate and configure dependencies in correct order
+    FetchContent_MakeAvailable(ZLIB EXPAT exiv2)
 
     if(TARGET exiv2lib)
         set(EXIV2_TARGET exiv2lib)
     else()
-        message(
-            FATAL_ERROR
-            "Bundled Exiv2 did not provide the expected exiv2lib target."
-        )
+        message(FATAL_ERROR "Bundled Exiv2 did not provide the expected exiv2lib target.")
     endif()
 
-    set(
-        BUILD_SHARED_LIBS
-        "${MINIEXIV_REQUESTED_BUILD_SHARED_LIBS}"
-        CACHE BOOL
-        "Build MiniExiv as a shared library"
-        FORCE
-    )
-else()
-    find_package(Exiv2 QUIET CONFIG)
+    # Восстанавливаем пользовательский BUILD_SHARED_LIBS
+    set(BUILD_SHARED_LIBS "${MINIEXIV_REQUESTED_BUILD_SHARED_LIBS}" CACHE BOOL "Build MiniExiv as a shared library" FORCE)
 
-    if(NOT Exiv2_FOUND)
-        find_package(exiv2 QUIET CONFIG)
-    endif()
-
-    if(TARGET Exiv2::exiv2lib)
-        set(EXIV2_TARGET Exiv2::exiv2lib)
-    elseif(TARGET Exiv2::exiv2)
-        set(EXIV2_TARGET Exiv2::exiv2)
-    elseif(TARGET exiv2::exiv2)
-        set(EXIV2_TARGET exiv2::exiv2)
-    endif()
-
-    if(NOT EXIV2_TARGET)
-        find_package(PkgConfig QUIET)
-
-        if(PkgConfig_FOUND)
-            pkg_check_modules(
-                EXIV2
-                QUIET
-                IMPORTED_TARGET
-                exiv2
-            )
-
-            if(TARGET PkgConfig::EXIV2)
-                set(EXIV2_TARGET PkgConfig::EXIV2)
-            endif()
-        endif()
-    endif()
-
-    if(NOT EXIV2_TARGET)
-        message(
-            FATAL_ERROR
-            "Exiv2 was not found.\n"
-            "Install the Exiv2 development package or enable "
-            "MINIEXIV_BUILD_DEPENDENCIES."
-        )
-    endif()
 endif()
-
-message(STATUS "Using Exiv2 target: ${EXIV2_TARGET}")
-
 # ------------------------------------------------------------------------------
 # Generated sources
 # ------------------------------------------------------------------------------
 
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/version.cpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/version.cpp"
-    @ONLY
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/version.cpp.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/version.cpp"
+        @ONLY
 )
 
 # ------------------------------------------------------------------------------
@@ -357,17 +229,17 @@ configure_file(
 # ------------------------------------------------------------------------------
 
 add_library(
-    miniexiv
-    src/miniexiv.cpp
-    src/miniexiv_errors.cpp
-    "${CMAKE_CURRENT_BINARY_DIR}/version.cpp"
+        miniexiv
+        src/miniexiv.cpp
+        src/miniexiv_errors.cpp
+        "${CMAKE_CURRENT_BINARY_DIR}/version.cpp"
 )
 
 add_library(miniexiv::miniexiv ALIAS miniexiv)
 
 set_target_properties(
-    miniexiv
-    PROPERTIES
+        miniexiv
+        PROPERTIES
         VERSION "${PROJECT_VERSION}"
         SOVERSION "${PROJECT_VERSION_MAJOR}"
         C_VISIBILITY_PRESET hidden
@@ -376,34 +248,34 @@ set_target_properties(
 )
 
 target_include_directories(
-    miniexiv
-    PUBLIC
+        miniexiv
+        PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-    PRIVATE
+        PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
 if(MINIEXIV_BUILD_DEPENDENCIES)
     # Exiv2 0.28.8 generates exiv2lib_export.h in the top-level build folder.
     target_include_directories(
-        miniexiv
-        PRIVATE
+            miniexiv
+            PRIVATE
             "${CMAKE_CURRENT_BINARY_DIR}"
     )
 endif()
 
 if(MINIEXIV_BUILD_DEPENDENCIES OR BUILD_SHARED_LIBS)
     target_link_libraries(
-        miniexiv
-        PRIVATE
+            miniexiv
+            PRIVATE
             "${EXIV2_TARGET}"
     )
 else()
     target_link_libraries(
-        miniexiv
-        PUBLIC
+            miniexiv
+            PUBLIC
             "${EXIV2_TARGET}"
     )
 endif()
@@ -415,9 +287,9 @@ endif()
 include(GenerateExportHeader)
 
 generate_export_header(
-    miniexiv
-    BASE_NAME miniexiv
-    EXPORT_FILE_NAME
+        miniexiv
+        BASE_NAME miniexiv
+        EXPORT_FILE_NAME
         "${CMAKE_CURRENT_BINARY_DIR}/include/miniexiv/miniexiv_export.h"
 )
 
@@ -428,22 +300,22 @@ generate_export_header(
 include(CMakePackageConfigHelpers)
 
 write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfigVersion.cmake"
-    VERSION "${PROJECT_VERSION}"
-    COMPATIBILITY SameMajorVersion
+        "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfigVersion.cmake"
+        VERSION "${PROJECT_VERSION}"
+        COMPATIBILITY SameMajorVersion
 )
 
 configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/miniexivConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfig.cmake"
-    INSTALL_DESTINATION
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/miniexivConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfig.cmake"
+        INSTALL_DESTINATION
         "${CMAKE_INSTALL_LIBDIR}/cmake/miniexiv"
 )
 
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/miniexiv.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/miniexiv.pc"
-    @ONLY
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/miniexiv.pc.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/miniexiv.pc"
+        @ONLY
 )
 
 # ------------------------------------------------------------------------------
@@ -452,118 +324,117 @@ configure_file(
 
 if(MINIEXIV_BUILD_DEPENDENCIES)
     install(
-        TARGETS miniexiv
+            TARGETS miniexiv
 
-        RUNTIME
+            RUNTIME
             DESTINATION "${CMAKE_INSTALL_BINDIR}"
             COMPONENT MiniExiv
 
-        LIBRARY
+            LIBRARY
             DESTINATION "${CMAKE_INSTALL_LIBDIR}"
             COMPONENT MiniExiv
             NAMELINK_COMPONENT MiniExiv
 
-        ARCHIVE
+            ARCHIVE
             DESTINATION "${CMAKE_INSTALL_LIBDIR}"
             COMPONENT MiniExiv
 
-        INCLUDES
+            INCLUDES
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     )
 else()
     install(
-        TARGETS miniexiv
-        EXPORT miniexivTargets
+            TARGETS miniexiv
+            EXPORT miniexivTargets
 
-        RUNTIME
+            RUNTIME
             DESTINATION "${CMAKE_INSTALL_BINDIR}"
             COMPONENT MiniExiv
 
-        LIBRARY
+            LIBRARY
             DESTINATION "${CMAKE_INSTALL_LIBDIR}"
             COMPONENT MiniExiv
             NAMELINK_COMPONENT MiniExiv
 
-        ARCHIVE
+            ARCHIVE
             DESTINATION "${CMAKE_INSTALL_LIBDIR}"
             COMPONENT MiniExiv
 
-        INCLUDES
+            INCLUDES
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     )
 endif()
 
 install(
-    DIRECTORY
+        DIRECTORY
         "${CMAKE_CURRENT_SOURCE_DIR}/include/miniexiv/"
-    DESTINATION
+        DESTINATION
         "${CMAKE_INSTALL_INCLUDEDIR}/miniexiv"
-    COMPONENT
+        COMPONENT
         MiniExiv
-    FILES_MATCHING
+        FILES_MATCHING
         PATTERN "*.h"
 )
 
 install(
-    FILES
+        FILES
         "${CMAKE_CURRENT_BINARY_DIR}/include/miniexiv/miniexiv_export.h"
-    DESTINATION
+        DESTINATION
         "${CMAKE_INSTALL_INCLUDEDIR}/miniexiv"
-    COMPONENT
+        COMPONENT
         MiniExiv
 )
 
 install(
-    FILES
+        FILES
         "${CMAKE_CURRENT_BINARY_DIR}/miniexiv.pc"
-    DESTINATION
+        DESTINATION
         "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
-    COMPONENT
+        COMPONENT
         MiniExiv
 )
 
 if(NOT MINIEXIV_BUILD_DEPENDENCIES)
     install(
-        EXPORT miniexivTargets
-        FILE miniexivTargets.cmake
-        NAMESPACE miniexiv::
-        DESTINATION
+            EXPORT miniexivTargets
+            FILE miniexivTargets.cmake
+            NAMESPACE miniexiv::
+            DESTINATION
             "${CMAKE_INSTALL_LIBDIR}/cmake/miniexiv"
-        COMPONENT
+            COMPONENT
             MiniExiv
     )
 
     install(
-        FILES
+            FILES
             "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfig.cmake"
             "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfigVersion.cmake"
-        DESTINATION
+            DESTINATION
             "${CMAKE_INSTALL_LIBDIR}/cmake/miniexiv"
-        COMPONENT
+            COMPONENT
             MiniExiv
     )
 endif()
 
 install(
-    FILES
+        FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
         "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
-    DESTINATION
+        DESTINATION
         "${CMAKE_INSTALL_DATADIR}/doc/miniexiv"
-    COMPONENT
+        COMPONENT
         MiniExiv
 )
 
 if(NOT MINIEXIV_BUILD_DEPENDENCIES)
     export(
-        EXPORT miniexivTargets
-        FILE
+            EXPORT miniexivTargets
+            FILE
             "${CMAKE_CURRENT_BINARY_DIR}/miniexivTargets.cmake"
-        NAMESPACE
+            NAMESPACE
             miniexiv::
     )
 endif()
-
 
 # ------------------------------------------------------------------------------
 # Packaging
@@ -576,9 +447,9 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "${PROJECT_HOMEPAGE_URL}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
 
 set(
-    CPACK_PACKAGE_DESCRIPTION
-    "MiniExiv provides a C API for reading and modifying EXIF, IPTC, XMP, "
-    "ICC profiles, and image comments using the Exiv2 metadata library."
+        CPACK_PACKAGE_DESCRIPTION
+        "MiniExiv provides a C API for reading and modifying EXIF, IPTC, XMP, "
+        "ICC profiles, and image comments using the Exiv2 metadata library."
 )
 
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
@@ -586,15 +457,15 @@ set(CPACK_PACKAGE_CHECKSUM SHA256)
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
     set(
-        CPACK_RESOURCE_FILE_LICENSE
-        "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+            CPACK_RESOURCE_FILE_LICENSE
+            "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
     )
 endif()
 
 string(
-    TOLOWER
-    "${CMAKE_SYSTEM_NAME}"
-    MINIEXIV_PACKAGE_SYSTEM
+        TOLOWER
+        "${CMAKE_SYSTEM_NAME}"
+        MINIEXIV_PACKAGE_SYSTEM
 )
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
@@ -608,35 +479,35 @@ else()
 endif()
 
 set(
-    CPACK_SYSTEM_NAME
-    "${MINIEXIV_PACKAGE_SYSTEM}-${MINIEXIV_PACKAGE_ARCH}"
+        CPACK_SYSTEM_NAME
+        "${MINIEXIV_PACKAGE_SYSTEM}-${MINIEXIV_PACKAGE_ARCH}"
 )
 
 set(
-    CPACK_PACKAGE_FILE_NAME
-    "${CPACK_PACKAGE_NAME}-${PROJECT_VERSION}-${CPACK_SYSTEM_NAME}"
+        CPACK_PACKAGE_FILE_NAME
+        "${CPACK_PACKAGE_NAME}-${PROJECT_VERSION}-${CPACK_SYSTEM_NAME}"
 )
 
 set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
 
 set(
-    CPACK_SOURCE_PACKAGE_FILE_NAME
-    "${CPACK_PACKAGE_NAME}-${PROJECT_VERSION}-source"
+        CPACK_SOURCE_PACKAGE_FILE_NAME
+        "${CPACK_PACKAGE_NAME}-${PROJECT_VERSION}-source"
 )
 
 set(
-    CPACK_SOURCE_IGNORE_FILES
-    "/[.]git/"
-    "/[.]github/"
-    "/out/"
-    "/build/"
-    "/build-[^/]*/"
-    "/cmake-build-[^/]*/"
-    "/[.]idea/"
-    "/[.]vscode/"
-    "/CMakeUserPresets[.]json$"
-    "/[.]DS_Store$"
-    "~$"
+        CPACK_SOURCE_IGNORE_FILES
+        "/[.]git/"
+        "/[.]github/"
+        "/out/"
+        "/build/"
+        "/build-[^/]*/"
+        "/cmake-build-[^/]*/"
+        "/[.]idea/"
+        "/[.]vscode/"
+        "/CMakeUserPresets[.]json$"
+        "/[.]DS_Store$"
+        "~$"
 )
 
 if(UNIX AND NOT APPLE)
@@ -674,3 +545,4 @@ include(CTest)
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
+

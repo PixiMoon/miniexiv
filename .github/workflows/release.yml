@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }}
+    name: Build ${{ matrix.platform }} (${{ matrix.build_type }})
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -23,12 +23,27 @@ jobs:
         include:
           - platform: Linux
             os: ubuntu-latest
+            build_type: shared
+            archive_extension: tar.gz
+          - platform: Linux
+            os: ubuntu-latest
+            build_type: static
             archive_extension: tar.gz
           - platform: macOS
             os: macos-latest
+            build_type: shared
+            archive_extension: tar.gz
+          - platform: macOS
+            os: macos-latest
+            build_type: static
             archive_extension: tar.gz
           - platform: Windows
             os: windows-latest
+            build_type: shared
+            archive_extension: zip
+          - platform: Windows
+            os: windows-latest
+            build_type: static
             archive_extension: zip
 
     steps:
@@ -67,41 +82,28 @@ jobs:
           set -euo pipefail
           brew install cmake ninja pkg-config
 
-      - name: Set up MSVC
+      - name: Set up MSVC (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install build tools (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          choco install cmake ninja --yes --no-progress
-
-      - name: Configure (Linux and macOS)
-        if: runner.os != 'Windows'
+      - name: Configure CMake
         shell: bash
         run: |
           set -euo pipefail
+          
+          if [ "${{ matrix.build_type }}" = "shared" ]; then
+            SHARED_FLAG="ON"
+          else
+            SHARED_FLAG="OFF"
+          fi
+
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_SHARED_LIBS=${SHARED_FLAG} \
             -DMINIEXIV_BUILD_DEPENDENCIES=ON \
             -DBUILD_TESTING=ON \
-            -DBUILD_DOCS=OFF
-
-      - name: Configure (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          cmake -S . -B build -G Ninja `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DBUILD_SHARED_LIBS=ON `
-            -DMINIEXIV_BUILD_DEPENDENCIES=ON `
-            -DBUILD_TESTING=ON `
             -DBUILD_DOCS=OFF
 
       - name: Build
@@ -137,14 +139,47 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Monolithic Binary (Shared linkage check)
+        if: matrix.build_type == 'shared'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Verifying zero external dependency linkage ==="
+
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            DYNAMIC_LIB=$(find stage -name "libminiexiv*.dylib" | head -n 1)
+            echo "Checking macOS library: $DYNAMIC_LIB"
+            
+            LEAKS=$(otool -L "$DYNAMIC_LIB" | grep -E '(libexpat|libz|libexiv2)' || true)
+            if [ -n "$LEAKS" ]; then
+              echo "ERROR: Dynamic dependency leak detected in shared dylib:"
+              echo "$LEAKS"
+              exit 1
+            fi
+
+          elif [ "${{ runner.os }}" = "Linux" ]; then
+            DYNAMIC_LIB=$(find stage -name "libminiexiv*.so*" | head -n 1)
+            echo "Checking Linux library: $DYNAMIC_LIB"
+            
+            LEAKS=$(ldd "$DYNAMIC_LIB" | grep -E '(libexpat|libz|libexiv2)' || true)
+            if [ -n "$LEAKS" ]; then
+              echo "ERROR: Dynamic dependency leak detected in shared .so:"
+              echo "$LEAKS"
+              exit 1
+            fi
+          fi
+
       - name: Set package name
         shell: bash
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          OS_NAME="$(printf '%s' '${{ runner.os }}' | tr '[:upper:]' '[:lower:]')"
-          ARCH_NAME="$(printf '%s' "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')"
-          PACKAGE_NAME="miniexiv-${VERSION}-${OS_NAME}-${ARCH_NAME}-shared"
+          
+          RUNNER_OS_LOWER=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+          RUNNER_ARCH_LOWER=$(echo "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')
+          
+          PACKAGE_NAME="miniexiv-${VERSION}-${RUNNER_OS_LOWER}-${RUNNER_ARCH_LOWER}-${{ matrix.build_type }}"
+          
           echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "${GITHUB_ENV}"
           echo "PACKAGE_FILE=${PACKAGE_NAME}.${{ matrix.archive_extension }}" >> "${GITHUB_ENV}"
 
