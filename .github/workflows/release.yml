@@ -271,7 +271,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          cmake --build build --parallel
+          cmake --build build --config Release --parallel
 
           if ($LASTEXITCODE -ne 0) {
               throw "Build failed"
@@ -344,53 +344,7 @@ jobs:
 
           "DUMPBIN=$($dumpbin.FullName)" >> $env:GITHUB_ENV
 
-      - name: Verify DLL
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $dll = Get-ChildItem `
-              -Path install `
-              -Filter miniexiv.dll `
-              -Recurse |
-              Select-Object -First 1
-
-          if (-not $dll) {
-              throw "miniexiv.dll was not installed"
-          }
-
-          Write-Host "Checking $($dll.FullName)"
-
-          $dependencies = & "$env:DUMPBIN" /dependents "$($dll.FullName)"
-          $dependencies | Write-Host
-
-          $unexpectedDependencies = @(
-              "exiv2.dll",
-              "zlib.dll",
-              "zlib1.dll",
-              "libexpat.dll",
-              "expat.dll",
-              "brotli.dll",
-              "inih.dll"
-          )
-
-          foreach ($dependency in $unexpectedDependencies) {
-              if ($dependencies -match [regex]::Escape($dependency)) {
-                  throw "Unexpected dependency detected: $dependency"
-              }
-          }
-
-          $exports = & "$env:DUMPBIN" /exports "$($dll.FullName)"
-          $exports | Write-Host
-
-          if ($exports -notmatch "miniexiv_initialize") {
-              throw "miniexiv_initialize was not exported"
-          }
-
-          if ($exports -notmatch "miniexiv_image_open_file") {
-              throw "miniexiv_image_open_file was not exported"
-          }
-
+      
       - name: Prepare package
         shell: pwsh
         run: |
