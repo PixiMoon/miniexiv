@@ -214,11 +214,14 @@ set(CMAKE_SKIP_INSTALL_RULES ON)
     set(EXIV2_BUILD_DOC OFF CACHE BOOL "" FORCE)
 
     FetchContent_Declare(
-        exiv2
-        GIT_REPOSITORY https://github.com/Exiv2/exiv2.git
-        GIT_TAG v0.28.8
-        EXCLUDE_FROM_ALL
-    )
+    exiv2
+    GIT_REPOSITORY https://github.com/Exiv2/exiv2.git
+    GIT_TAG v0.28.8
+    EXCLUDE_FROM_ALL
+    PATCH_COMMAND ${CMAKE_COMMAND} -E copy
+                  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/Exiv2RootCMakeLists.txt"
+                  "<SOURCE_DIR>/CMakeLists.txt"
+)
 
     # Exiv2 конфигурируется только после zlib и Expat.
     FetchContent_MakeAvailable(exiv2)
