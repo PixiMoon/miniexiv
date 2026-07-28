@@ -106,14 +106,6 @@ endif()
 # Exiv2 dependency
 # ------------------------------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-# Exiv2 dependency
-# ------------------------------------------------------------------------------
-
-# ------------------------------------------------------------------------------
-# Exiv2 dependency
-# ------------------------------------------------------------------------------
-
 set(EXIV2_TARGET "")
 
 if(MINIEXIV_BUILD_DEPENDENCIES)
@@ -125,14 +117,14 @@ if(MINIEXIV_BUILD_DEPENDENCIES)
 
     include(FetchContent)
 
-    # 1. Включаем -fPIC для слияния статического кода в .dylib
+    # 1. Включаем -fPIC для слияния статического кода в .dylib / .so
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
     # Запрещаем FetchContent искать системные библиотеки через find_package
     set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER CACHE STRING "" FORCE)
 
     # ==========================================================================
-    # КЛЮЧЕВОЙ МОМЕНТ 1: Форсируем статическую сборку зависимостей
+    # Форсируем статическую сборку зависимостей
     # ==========================================================================
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(EXIV2_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -187,9 +179,7 @@ if(MINIEXIV_BUILD_DEPENDENCIES)
     set(EXIV2_BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
     set(EXIV2_BUILD_DOC OFF CACHE BOOL "" FORCE)
 
-    # ==========================================================================
-    # КЛЮЧЕВОЙ МОМЕНТ 2: Указываем Exiv2 использовать собранные цели ZLIB/EXPAT
-    # ==========================================================================
+    # Указываем Exiv2 использовать собранные цели ZLIB/EXPAT
     set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
     set(ZLIB_USE_STATIC_LIBS ON CACHE BOOL "" FORCE)
     set(EXPAT_FOUND TRUE CACHE BOOL "" FORCE)
@@ -213,7 +203,37 @@ if(MINIEXIV_BUILD_DEPENDENCIES)
     # Восстанавливаем пользовательский BUILD_SHARED_LIBS
     set(BUILD_SHARED_LIBS "${MINIEXIV_REQUESTED_BUILD_SHARED_LIBS}" CACHE BOOL "Build MiniExiv as a shared library" FORCE)
 
+    # --------------------------------------------------------------------------
+    # ФИКС ДЛЯ MSVC: Проставляем переменные инклюдов для капризного Exiv2
+    # --------------------------------------------------------------------------
+    if(MSVC)
+        if(TARGET zlibstatic)
+            get_target_property(ZLIB_INC zlibstatic INTERFACE_INCLUDE_DIRECTORIES)
+            set(ZLIB_INCLUDE_DIR "${ZLIB_INC}" "${zlib_SOURCE_DIR}" "${zlib_BINARY_DIR}" CACHE PATH "" FORCE)
+        endif()
+        if(TARGET expat)
+            get_target_property(EXPAT_INC expat INTERFACE_INCLUDE_DIRECTORIES)
+            set(EXPAT_INCLUDE_DIR "${EXPAT_INC}" "${expat_SOURCE_DIR}/lib" CACHE PATH "" FORCE)
+        endif()
+    endif()
+
+else()
+    # ==========================================================================
+    # ИСПРАВЛЕНИЕ: Ветка для системных / внешних зависимостей
+    # ==========================================================================
+    message(STATUS "MINIEXIV_BUILD_DEPENDENCIES is OFF: using system/external Exiv2...")
+
+    find_package(Exiv2 REQUIRED)
+
+    if(TARGET Exiv2::exiv2lib)
+        set(EXIV2_TARGET Exiv2::exiv2lib)
+    elseif(TARGET exiv2lib)
+        set(EXIV2_TARGET exiv2lib)
+    else()
+        message(FATAL_ERROR "Found Exiv2, but neither Exiv2::exiv2lib nor exiv2lib target is available.")
+    endif()
 endif()
+
 # ------------------------------------------------------------------------------
 # Generated sources
 # ------------------------------------------------------------------------------
@@ -266,19 +286,11 @@ if(MINIEXIV_BUILD_DEPENDENCIES)
     )
 endif()
 
-if(MINIEXIV_BUILD_DEPENDENCIES OR BUILD_SHARED_LIBS)
-    target_link_libraries(
-            miniexiv
-            PRIVATE
-            "${EXIV2_TARGET}"
-    )
-else()
-    target_link_libraries(
-            miniexiv
-            PUBLIC
-            "${EXIV2_TARGET}"
-    )
-endif()
+target_link_libraries(
+        miniexiv
+        PRIVATE
+        "${EXIV2_TARGET}"
+)
 
 # ------------------------------------------------------------------------------
 # Export header
@@ -319,51 +331,29 @@ configure_file(
 )
 
 # ------------------------------------------------------------------------------
-# Installation
+# Installation (Унифицировано для обоих режимов)
 # ------------------------------------------------------------------------------
 
-if(MINIEXIV_BUILD_DEPENDENCIES)
-    install(
-            TARGETS miniexiv
+install(
+        TARGETS miniexiv
+        EXPORT miniexivTargets
 
-            RUNTIME
-            DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            COMPONENT MiniExiv
+        RUNTIME
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT MiniExiv
 
-            LIBRARY
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            COMPONENT MiniExiv
-            NAMELINK_COMPONENT MiniExiv
+        LIBRARY
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        COMPONENT MiniExiv
+        NAMELINK_COMPONENT MiniExiv
 
-            ARCHIVE
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            COMPONENT MiniExiv
+        ARCHIVE
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        COMPONENT MiniExiv
 
-            INCLUDES
-            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-    )
-else()
-    install(
-            TARGETS miniexiv
-            EXPORT miniexivTargets
-
-            RUNTIME
-            DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            COMPONENT MiniExiv
-
-            LIBRARY
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            COMPONENT MiniExiv
-            NAMELINK_COMPONENT MiniExiv
-
-            ARCHIVE
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            COMPONENT MiniExiv
-
-            INCLUDES
-            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-    )
-endif()
+        INCLUDES
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
 
 install(
         DIRECTORY
@@ -394,27 +384,25 @@ install(
         MiniExiv
 )
 
-if(NOT MINIEXIV_BUILD_DEPENDENCIES)
-    install(
-            EXPORT miniexivTargets
-            FILE miniexivTargets.cmake
-            NAMESPACE miniexiv::
-            DESTINATION
-            "${CMAKE_INSTALL_LIBDIR}/cmake/miniexiv"
-            COMPONENT
-            MiniExiv
-    )
+install(
+        EXPORT miniexivTargets
+        FILE miniexivTargets.cmake
+        NAMESPACE miniexiv::
+        DESTINATION
+        "${CMAKE_INSTALL_LIBDIR}/cmake/miniexiv"
+        COMPONENT
+        MiniExiv
+)
 
-    install(
-            FILES
-            "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfig.cmake"
-            "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfigVersion.cmake"
-            DESTINATION
-            "${CMAKE_INSTALL_LIBDIR}/cmake/miniexiv"
-            COMPONENT
-            MiniExiv
-    )
-endif()
+install(
+        FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/miniexivConfigVersion.cmake"
+        DESTINATION
+        "${CMAKE_INSTALL_LIBDIR}/cmake/miniexiv"
+        COMPONENT
+        MiniExiv
+)
 
 install(
         FILES
@@ -426,15 +414,13 @@ install(
         MiniExiv
 )
 
-if(NOT MINIEXIV_BUILD_DEPENDENCIES)
-    export(
-            EXPORT miniexivTargets
-            FILE
-            "${CMAKE_CURRENT_BINARY_DIR}/miniexivTargets.cmake"
-            NAMESPACE
-            miniexiv::
-    )
-endif()
+export(
+        EXPORT miniexivTargets
+        FILE
+        "${CMAKE_CURRENT_BINARY_DIR}/miniexivTargets.cmake"
+        NAMESPACE
+        miniexiv::
+)
 
 # ------------------------------------------------------------------------------
 # Packaging
@@ -545,4 +531,3 @@ include(CTest)
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
-
