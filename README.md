@@ -92,7 +92,14 @@ Install the remaining dependencies with Homebrew:
 ```bash
 brew install cmake ninja pkg-config exiv2
 ```
+### Windows
 
+To build miniexiv from source, ensure you have the following tools installed on your system:
+|Tool|Purpose|How to Install (Windows Example)|
+|Visual Studio|Provides the MSVC C++ compiler (cl.exe) and build tools.|Visual Studio Installer (select "Desktop development with C++")|
+|CMake|Cross-platform build system configuration.|winget install Kitware.CMake|
+|Python|Required by internal dependency scripts or test suites.|winget install Python.Python.3.11|
+|Git|Version control and fetching submodule sources.|winget install Git.Git|
 ### Fedora
 
 ```bash
@@ -172,6 +179,7 @@ cmake --build build-debug
 
 | Option | Purpose | Default |
 |---|---|---:|
+| `MINIEXIV_BUILD_DEPENDENCIES`| Fetch and build Exiv2 and its dependencies from source | `ON` |
 | `CMAKE_INSTALL_PREFIX` | Installation directory | Platform-dependent |
 | `CMAKE_BUILD_TYPE` | Build configuration for single-config generators | Not set |
 | `BUILD_SHARED_LIBS` | Build a shared library when `ON`, or a static library when `OFF` | `OFF` unless set explicitly |
