@@ -95,7 +95,9 @@ brew install cmake ninja pkg-config exiv2
 ### Windows
 
 To build miniexiv from source, ensure you have the following tools installed on your system:
+
 |Tool|Purpose|How to Install (Windows Example)|
+|----|----|----|
 |Visual Studio|Provides the MSVC C++ compiler (cl.exe) and build tools.|Visual Studio Installer (select "Desktop development with C++")|
 |CMake|Cross-platform build system configuration.|winget install Kitware.CMake|
 |Python|Required by internal dependency scripts or test suites.|winget install Python.Python.3.11|
